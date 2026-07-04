@@ -21,3 +21,4 @@ Thumbs.db
 # Temp
 temp_uploads/
 *.log
+venv/
