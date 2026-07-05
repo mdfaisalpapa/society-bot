@@ -6,10 +6,10 @@ This bot acts as a conversational interface for residents, allowing them to mana
 
 ## 🌟 Key Features
 
-* **Resident Onboarding:** Secure, phone-number-verified registration workflow mapping Telegram users to their ERPNext flat records.
-* **Maintenance Ticketing:** Interactive wizard to raise tickets by category, complete with multipart photo upload support directly to ERPNext document attachments.
-* **Tenant & Visitor Management:** Step-by-step conversational flows to capture structured data (dates, relationships, contact info) and save it as Customer/Visitor records.
-* **Profile Dashboard:** An inline-keyboard hub for users to view their active status, parking slots, and update their contact details.
+* **Resident Onboarding:** Secure, phone-number-verified registration workflow mapping Telegram users to their ERPNext flat records.(completed)
+* **Maintenance Ticketing:** Interactive wizard to raise tickets by category, complete with multipart photo upload support directly to ERPNext document attachments.(completed)
+* **Tenant & Visitor Management:** Step-by-step conversational flows to capture structured data (dates, relationships, contact info) and save it as Customer/Visitor records.(Work in Progress)
+* **Profile Dashboard:** An inline-keyboard hub for users to view their active status, parking slots, and update their contact details.(Completed)
 * **Webhook Architecture:** Built on Flask for instantaneous, push-based Telegram updates rather than slow polling.
 
 ---
@@ -52,7 +52,6 @@ society-bot/
 
 To ensure the bot routes data correctly, your ERPNext instance must have the following Custom DocTypes and fields configured. 
 
-*(Note: Adjust fieldnames to match your exact setup)*
 
 ### 1. DocType: `Resident Profile`
 * `flat_number` (Data, Primary Key/Name)
