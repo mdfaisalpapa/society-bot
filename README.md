@@ -44,3 +44,117 @@ society-bot/
 ├── .env                         # Environment variables (Ignored in git)
 ├── app.py                       # Main Flask webhook server
 └── requirements.txt             # Python dependencies
+```
+
+---
+
+## 🗄️ ERPNext Schema Requirements
+
+To ensure the bot routes data correctly, your ERPNext instance must have the following Custom DocTypes and fields configured. 
+
+*(Note: Adjust fieldnames to match your exact setup)*
+
+### 1. DocType: `Resident Profile`
+* `flat_number` (Data, Primary Key/Name)
+* `display_name` (Data)
+* `owner_phone` (Data)
+* `tenant_phone` (Data)
+* `is_rented` (Check)
+* `active_email` (Data)
+* `parking_slot` (Data)
+* `telegram_chat_id` (Data - Used by the bot to link the user)
+
+### 2. DocType: `Maintenance Ticket`
+* `category` (Select: Plumbing, Electrical, Civil, Carpentry, Other)
+* `description` (Small Text)
+* `status` (Select: Open, In Progress, Closed)
+* `photo` (Attach Image - Target for Telegram photo uploads)
+
+### 3. DocType: `Visitor` (or Custom Visitor Log)
+* `visitor_name` (Data)
+* `mobile_no` (Data)
+* `expected_arrival` (Datetime)
+
+---
+
+## ⚙️ Prerequisites
+
+* Python 3.10+
+* An active Telegram Bot Token (from [@BotFather](https://t.me/botfather))
+* An ERPNext instance (tested with v15/v16) with API access enabled.
+* API Key and API Secret generated for a user with appropriate permissions (e.g., System Manager) in ERPNext.
+
+---
+
+## 🚀 Installation
+
+**1. Clone the repository and navigate to the directory:**
+```bash
+git clone [https://github.com/yourusername/society-bot.git](https://github.com/yourusername/society-bot.git)
+cd society-bot
+```
+
+**2. Set up the Python virtual environment:**
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+**3. Install dependencies:**
+```bash
+pip install -r requirements.txt
+```
+
+**4. Configure your environment variables:**
+Copy the example file and edit it with your live credentials.
+```bash
+cp .env.example .env
+```
+
+Ensure your `.env` looks like this:
+```env
+# Telegram Bot Configuration
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
+ADMIN_CHAT_ID=your_admin_chat_id
+
+# ERPNext Configuration
+ERPNEXT_URL=[https://your-erpnext-instance.com](https://your-erpnext-instance.com)
+ERPNEXT_API_KEY=your_api_key
+ERPNEXT_API_SECRET=your_api_secret
+
+# Flask Application
+FLASK_PORT=5000
+DEBUG=True
+
+# Database
+DATABASE_PATH=database/sessions.db
+```
+
+---
+
+## 🛠️ Local Development & Testing
+
+Because this bot uses webhooks rather than polling, Telegram needs a public URL to send messages to your local machine. 
+
+**1. Start the Flask application:**
+```bash
+python3 app.py
+```
+
+**2. Expose your local server using ngrok:**
+In a separate terminal window, run:
+```bash
+ngrok http 5000
+```
+
+**3. Register the Webhook with Telegram:**
+Copy the `https://...` forwarding URL provided by ngrok and use your browser to register it:
+```text
+[https://api.telegram.org/bot](https://api.telegram.org/bot)<YOUR_BOT_TOKEN>/setWebhook?url=<YOUR_NGROK_URL>/webhook
+```
+
+---
+
+## 🚢 Production Deployment
+
+For production, it is recommended to run the Flask application using a production WSGI server like **Gunicorn** and manage the process using `systemd` or by containerizing the application with **Docker**. Ensure your web server (e.g., Nginx) is configured to handle SSL/TLS termination, as Telegram requires webhooks to be served over HTTPS.
