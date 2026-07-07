@@ -1,3 +1,5 @@
+import json
+import requests
 from services.telegram import TelegramService
 
 class Messenger:
@@ -16,15 +18,15 @@ class Messenger:
         The universal sender. Routes generic commands to the correct platform.
         """
         if platform == "telegram":
-            # Translate generic arguments into Telegram's specific JSON
+            # 1. Get the markup dictionary
             telegram_markup = Messenger._format_for_telegram(**kwargs)
+            
+            # 2. Pass the dictionary DIRECTLY to TelegramService
+            # (Do NOT use json.dumps here, as telegram.py already does it!)
             TelegramService.send_message(user_id, text, telegram_markup)
             
         elif platform == "whatsapp":
-            # Placeholder: In the future, this will translate the exact same 
-            # kwargs into WhatsApp's Interactive List format!
             pass
-            
         else:
             print(f"❌ Messenger Error: Unknown platform '{platform}'")
 
@@ -35,6 +37,8 @@ class Messenger:
         
         # 1. Translate a generic Grid into an Inline Keyboard
         # Example input: grid=[[{"Button": "/command"}]]
+        if "inline_keyboard" in kwargs:
+            markup["inline_keyboard"] = kwargs["inline_keyboard"]
         if "grid" in kwargs:
             inline_keyboard = []
             for row in kwargs["grid"]:
@@ -62,5 +66,11 @@ class Messenger:
 
         # Return None if no UI elements were requested so the API doesn't complain
         return markup if markup else None
+
+    @staticmethod
+    def send_photo(platform: str, chat_id: str, photo_bytes: bytes, caption: str = ""):
+        if platform == "telegram":
+            # Assuming you have a TelegramService instance imported/configured
+            return TelegramService().send_photo(chat_id, photo_bytes, caption)
 
     

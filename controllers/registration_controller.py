@@ -52,7 +52,8 @@ class RegistrationController:
             )
         else:
             # NO PHONE ON FILE: Proceed with direct registration
-            success = self.erp.register_resident(clean_flat, chat_id)
+            # FIX APPLIED: Passing chat_id for both the chat_id and user_id arguments
+            success = self.erp.register_resident(clean_flat, chat_id, chat_id)
             self.session.clear_session(chat_id)
             
             if success:
@@ -60,7 +61,7 @@ class RegistrationController:
             else:
                 Messenger.send(platform, chat_id, "❌ Registration failed in ERPNext. Please contact Admin.")
 
-    def verify_and_register_contact(self, platform: str, chat_id: str, contact_data: dict, session_data: dict):
+    def verify_and_register_contact(self, platform: str, chat_id: str, user_id: str, contact_data: dict, session_data: dict):
         """Step 3: Compare shared contact with ERPNext data and register if matched."""
         expected_phone = session_data.get("expected_phone", "")
         target_flat = session_data.get("target_flat", "")
@@ -71,7 +72,7 @@ class RegistrationController:
         
         # Compare the last 10 digits
         if clean_expected[-10:] == clean_shared[-10:]:
-            success = self.erp.register_resident(target_flat, chat_id)
+            success = self.erp.register_resident(target_flat, chat_id, user_id)
             self.session.clear_session(chat_id)
             
             if success:

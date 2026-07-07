@@ -6,6 +6,8 @@ from controllers.profile_controller import ProfileController
 from controllers.registration_controller import RegistrationController
 from controllers.menu_controller import MenuController
 from controllers.maintenance_controller import MaintenanceController
+from controllers.visitor_controller import VisitorController
+from controllers.tenant_controller import TenantController
 
 class ConversationEngine:
     def __init__(self):
@@ -15,6 +17,8 @@ class ConversationEngine:
         self.registration_controller = RegistrationController(self.erp_client, self.session_manager)
         self.menu_controller = MenuController()
         self.maintenance_controller = MaintenanceController(self.erp_client, self.session_manager)
+        self.visitor_controller = VisitorController()
+        self.tenant_controller = TenantController(self.erp_client, self.session_manager)
 
     def process_update(self, update: dict):
         # 1. MOVE THIS TO THE TOP
@@ -36,8 +40,6 @@ class ConversationEngine:
                 self.maintenance_controller.handle_file_upload(platform, chat_id, ticket_id, message)
                 return
         
-        # ... rest of your code
-        # 
         # 1. PLATFORM DETECTION: Read the webhook signature
         if "object" in update and update.get("object") == "whatsapp_business_account":
             platform = "whatsapp"
@@ -74,8 +76,9 @@ class ConversationEngine:
                 return
             elif step == "awaiting_registration_contact" and contact_data:
                 if str(contact_data.get("user_id")) == str(message.get("from", {}).get("id")):
+                    user_id = str(update.get("message", {}).get("from", {}).get("id"))
                     self.registration_controller.verify_and_register_contact(
-                        platform, chat_id, contact_data, current_session.get("data", {})
+                        platform, chat_id, user_id, contact_data, current_session.get("data", {})
                     )
                 else:
                     Messenger.send(platform, chat_id, "❌ Verification failed. You must share your own profile contact.", remove_keyboard=True)
@@ -105,20 +108,28 @@ class ConversationEngine:
             elif step == "awaiting_email" and text:
                 self.profile_controller.save_edited_field(platform, chat_id, active_profile, "email", text)
                 return
+
         # -------------------------------------------------------------
-        # Maintenance Session Checks (Add this into process_update)
+        # Maintenance Session Checks
         # -------------------------------------------------------------
         if current_session.get("module") == "maintenance" and active_profile:
             step = current_session.get("step")
             
-            # This handles the buttons: /cat_Plumbing, /cat_Electrical, etc.
             if step == "awaiting_category" and text.startswith("/cat_"):
                 self.maintenance_controller.process_category_selection(platform, chat_id, text)
                 return
                 
-            # This handles the user's typed text for the description
             elif step == "awaiting_description" and text:
                 self.maintenance_controller.submit_ticket(platform, chat_id, active_profile, text)
+                return
+
+       # -------------------------------------------------------------
+        # Tenant Wizard Session Checks
+        # -------------------------------------------------------------
+        if current_session.get("module") == "add_tenant" and active_profile:
+            # Let these specific commands bypass the wizard and hit the command router
+            if text not in ["/confirm_tenant", "/cancel"]:
+                self.tenant_controller.process_wizard(platform, chat_id, text, current_session)
                 return
 
         # -------------------------------------------------------------
@@ -131,8 +142,13 @@ class ConversationEngine:
                 Messenger.send(platform, chat_id, "Please /register to use this bot.")
             return
 
-        # Notice how we now pass the 'platform' variable to every controller
-        if text in ["/start", "/menu"]:
+        if text == "/cancel":
+            if current_session:
+                self.session_manager.clear_session(chat_id)
+                Messenger.send(platform, chat_id, "✅ Current operation has been cancelled. You may use the menu to start again.")
+            else:
+                Messenger.send(platform, chat_id, "There is no active operation to cancel.")
+        elif text in ["/start", "/menu"]:
             self.menu_controller.show_main_menu(platform, chat_id, active_profile)
         elif text == "/profile":
             self.profile_controller.show_profile(platform, chat_id, active_profile)
@@ -146,13 +162,11 @@ class ConversationEngine:
             self.profile_controller.start_edit_field(platform, chat_id, "email")
         elif text == "/raise_ticket":
             self.maintenance_controller.start_ticket_flow(platform, chat_id)
-        # In Standard Command Routing:
-        # Standard Command Routing
+        
+        # --- Maintenance Routing ---
         elif text == "/my_tickets":
             self.maintenance_controller.show_active_tickets(platform, chat_id, active_profile, offset=0, status_filter="Open")
-            
         elif text.startswith("/my_tickets_"):
-            # Format: /my_tickets_OFFSET_FILTER (e.g., /my_tickets_10_Closed)
             parts = text.split("_")
             offset = int(parts[2])
             status_filter = parts[3]
@@ -160,10 +174,48 @@ class ConversationEngine:
         elif text.startswith("/view_"):
             ticket_name = text.split("_")[1].upper()
             self.maintenance_controller.view_ticket(platform, chat_id, ticket_name)
-        # Add this route to your Standard Command Routing
+        elif text.startswith("/viewfile_"):
+            file_name = text.split("_", 1)[1]
+            self.maintenance_controller.view_file(platform, chat_id, file_name)
         elif text.startswith("/addfile_"):
             ticket_name = text.split("_")[1].upper()
             self.maintenance_controller.trigger_upload_prompt(platform, chat_id, ticket_name)
+            
+        # --- Tenant Registration Routing ---
+        elif text == "/tenant":
+            # Security Block: Prevent an active tenant from opening the management menu
+            if active_profile and active_profile.is_rented and active_profile.tenant_telegram_chat_id == chat_id:
+                Messenger.send(platform, chat_id, "❌ Tenant Management is available only to Flat Owners.")
+            else:
+                self.tenant_controller.show_management_menu(platform, chat_id, active_profile)
+
+        elif text == "/add_tenant":
+            if active_profile and not active_profile.is_rented:
+                self.tenant_controller.start_wizard(platform, chat_id, active_profile.flat_number)
+            else:
+                Messenger.send(platform, chat_id, "❌ Unauthorized. Only Flat Owners can register a new tenant.")
+                
+        elif text == "/confirm_tenant":
+            if current_session and current_session.get("module") == "add_tenant":
+                self.tenant_controller.confirm_tenant(platform, chat_id, current_session)
+                
+        elif text == "/deactivate_tenant":
+            self.tenant_controller.confirm_deactivation(platform, chat_id)
+            
+        elif text == "/confirm_deactivate_tenant":
+            self.tenant_controller.process_deactivation(platform, chat_id, active_profile.flat_number)        
+        # --- Visitor Routing ---
+        elif text.startswith("/visitors"):
+            offset = int(text.split("_")[1]) if "_" in text else 0
+            self.visitor_controller.view_history(platform, chat_id, active_profile.flat_number, offset)
+        elif text.startswith("/vdate_"):
+            selection = text.split("_")[1]
+            self.visitor_controller.process_date_selection(platform, chat_id, selection)
+        elif text == "/invite":
+            self.visitor_controller.start_invite(platform, chat_id, active_profile.flat_number)
+        elif current_session and current_session.get("module") == "visitor":
+            self.visitor_controller.handle_wizard_reply(platform, chat_id, text, current_session.get("data"), current_session.get("step"))
+            
         else:
             Messenger.send(platform, chat_id, "I didn't understand that command. Try /menu.")
 

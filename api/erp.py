@@ -2,6 +2,8 @@ import requests
 import json
 from config import FRAPPE_URL, FRAPPE_API_KEY, FRAPPE_API_SECRET
 from entities.models import ResidentProfile
+import random
+from datetime import datetime, timedelta
 
 class ERPClient:
     def __init__(self):
@@ -12,140 +14,145 @@ class ERPClient:
         self.base_url = f"{FRAPPE_URL}/api/resource"
 
     def get_resident_profile(self, flat_number: str) -> ResidentProfile:
-        """Fetches a Customer record and maps it to the ResidentProfile entity."""
-        url = f"{self.base_url}/Customer/{flat_number}"
-        try:
-            response = requests.get(url, headers=self.headers)
-            if response.status_code == 200:
-                data = response.json().get("data", {})
-                return ResidentProfile(
-                    flat_number=data.get("name"),
-                    owner_name=data.get("custom_owner_name"),
-                    owner_phone=data.get("custom_owner_phone"),
-                    owner_email=data.get("email_id"), # Standard ERPNext email field, or change to custom_owner_email
-                    tenant_name=data.get("custom_tenant_name"),
-                    tenant_phone=data.get("custom_tenant_phone"),
-                    tenant_email=data.get("custom_tenant_email"), # From your CSV
-                    is_rented=bool(data.get("custom_let_out_for_rent")),
-                    telegram_chat_id=data.get("custom_telegram_chat_id"),
-                    tenant_telegram_chat_id=data.get("custom_tenant_telegram_chat_id"),
-                    parking_slot=data.get("custom_parking_slot") # Verify this field name in ERPNext
-                )
+        """Fetches the Active Owner and Active Tenant records."""
+        # 1. Get Base Flat Details (for parking slot and rent status)
+        cust_res = requests.get(f"{self.base_url}/Customer/{flat_number}", headers=self.headers)
+        if cust_res.status_code != 200:
             return None
-        except Exception as e:
-            print(f"ERPNext API Error: {e}")
-            return None
+        cust_data = cust_res.json().get("data", {})
+        is_rented = bool(cust_data.get("custom_let_out_for_rent"))
 
-    def logout_resident(self, flat_number: str, chat_id: str) -> bool:
-        """Bulletproof logout: Finds the exact field holding the Chat ID and clears it."""
-        url = f"{self.base_url}/Customer/{flat_number}"
-        
-        # 1. Fetch the profile to see EXACTLY where this ID is hiding
-        profile = self.get_resident_profile(flat_number)
-        if not profile:
-            return False
-            
-        payload = {}
-        
-        # 2. If it is in the owner field, target it for deletion
-        if str(profile.telegram_chat_id) == str(chat_id):
-            payload["custom_telegram_chat_id"] = ""
-            
-        # 3. If it is in the tenant field, target it for deletion
-        if str(profile.tenant_telegram_chat_id) == str(chat_id):
-            payload["custom_tenant_telegram_chat_id"] = ""
-            
-        # If the ID isn't in either field, they are technically already logged out
-        if not payload:
-            return True 
-            
-        try:
-            # 4. Push the deletion to ERPNext
-            response = requests.put(url, headers=self.headers, json=payload)
-            return response.status_code == 200
-        except Exception as e:
-            print(f"ERPNext API Error (Logout): {e}")
-            return False
+        # 2. Fetch Active Owner
+        owner_params = {
+            "filters": json.dumps([["flat", "=", flat_number], ["active", "=", 1]]), 
+            "fields": '["*"]'
+        }
+        owner_res = requests.get(f"{self.base_url}/Owners", headers=self.headers, params=owner_params)
+        owner_data = owner_res.json().get("data", [{}])[0] if owner_res.status_code == 200 and owner_res.json().get("data") else {}
+
+        # 3. Fetch Active Tenant (if flat is let out)
+        tenant_data = {}
+        if is_rented:
+            tenant_params = {
+                "filters": json.dumps([["flat", "=", flat_number], ["active", "=", 1]]), 
+                "fields": '["*"]'
+            }
+            tenant_res = requests.get(f"{self.base_url}/Tenants", headers=self.headers, params=tenant_params)
+            if tenant_res.status_code == 200 and tenant_res.json().get("data"):
+                tenant_data = tenant_res.json()["data"][0]
+
+        return ResidentProfile(
+            flat_number=flat_number,
+            owner_name=owner_data.get("owner_name"),
+            owner_phone=owner_data.get("mobile_no"),
+            owner_email=owner_data.get("email"),
+            tenant_name=tenant_data.get("tenant_name"),
+            tenant_phone=tenant_data.get("mobile_no"),
+            tenant_email=tenant_data.get("email"),
+            is_rented=is_rented,
+            telegram_chat_id=owner_data.get("telegram_chat_id"),
+            tenant_telegram_chat_id=tenant_data.get("telegram_chat_id"),
+            parking_slot=cust_data.get("custom_parking_slot")
+        )
 
     def get_profile_by_chat_id(self, chat_id: str) -> ResidentProfile:
-        """Searches ERPNext for a profile matching the given Telegram Chat ID."""
-        url = f"{self.base_url}/Customer"
-        
-        try:
-            # 1. Search Owners (safely encoded)
-            owner_params = {
-                "filters": json.dumps([["custom_telegram_chat_id", "=", str(chat_id)]]),
-                "fields": json.dumps(["name"])
-            }
-            res_owner = requests.get(url, headers=self.headers, params=owner_params).json()
-            
-            data_owner = res_owner.get("data", [])
-            if data_owner:
-                return self.get_resident_profile(data_owner[0]["name"])
-                
-            # 2. Search Tenants (safely encoded)
-            tenant_params = {
-                "filters": json.dumps([["custom_tenant_telegram_chat_id", "=", str(chat_id)]]),
-                "fields": json.dumps(["name"])
-            }
-            res_tenant = requests.get(url, headers=self.headers, params=tenant_params).json()
-            
-            data_tenant = res_tenant.get("data", [])
-            if data_tenant:
-                return self.get_resident_profile(data_tenant[0]["name"])
-                
-        except Exception as e:
-            print(f"ERPNext Search Error: {e}")
+        """Searches specifically for Active Owners or Active Tenants by Chat ID."""
+        # 1. Search Active Owners
+        owner_params = {
+            "filters": json.dumps([["telegram_chat_id", "=", str(chat_id)], ["active", "=", 1]]), 
+            "fields": '["flat"]'
+        }
+        owner_res = requests.get(f"{self.base_url}/Owners", headers=self.headers, params=owner_params)
+        if owner_res.status_code == 200 and owner_res.json().get("data"):
+            return self.get_resident_profile(owner_res.json()["data"][0]["flat"])
+
+        # 2. Search Active Tenants
+        tenant_params = {
+            "filters": json.dumps([["telegram_chat_id", "=", str(chat_id)], ["active", "=", 1]]), 
+            "fields": '["flat"]'
+        }
+        tenant_res = requests.get(f"{self.base_url}/Tenants", headers=self.headers, params=tenant_params)
+        if tenant_res.status_code == 200 and tenant_res.json().get("data"):
+            return self.get_resident_profile(tenant_res.json()["data"][0]["flat"])
             
         return None
-    def register_resident(self, flat_number: str, chat_id: str) -> bool:
-        """Links a Telegram Chat ID to a Flat in ERPNext."""
-        # 1. Fetch the flat to see if it exists and check its rented status
+
+    def register_resident(self, flat_number: str, chat_id: str, user_id: str) -> bool:
+        """Registers the chat ID and user ID directly to the Active Owner or Tenant record."""
+        # Force uppercase to ensure exact Link field matching
+        flat_number = str(flat_number).upper().strip()
+        
         profile = self.get_resident_profile(flat_number)
+        if not profile: 
+            print(f"❌ Could not fetch base profile for {flat_number}")
+            return False
+
+        doctype = "Tenants" if profile.is_rented else "Owners"
         
-        if not profile:
-            return False # Flat not found in the system
-            
-        # 2. Determine which field to update
-        url = f"{self.base_url}/Customer/{flat_number}"
-        target_field = "custom_tenant_telegram_chat_id" if profile.is_rented else "custom_telegram_chat_id"
-        
-        payload = {
-            target_field: str(chat_id)
+        # Look up the specific document name (e.g., TC2-411-O1)
+        params = {
+            "filters": json.dumps([["flat", "=", flat_number], ["active", "=", 1]]), 
+            "fields": '["name"]'
         }
+        res = requests.get(f"{self.base_url}/{doctype}", headers=self.headers, params=params)
         
-        try:
-            # 3. Push the update to ERPNext
-            response = requests.put(url, headers=self.headers, json=payload)
-            if response.status_code == 200:
+        if res.status_code == 200 and res.json().get("data"):
+            docname = res.json()["data"][0]["name"]
+            
+            # Attempt to push the update with both IDs
+            payload = {
+                "telegram_chat_id": str(chat_id),
+                "telegram_user_id": str(user_id)
+            }
+            
+            update_res = requests.put(
+                f"{self.base_url}/{doctype}/{docname}", 
+                headers=self.headers, 
+                json=payload
+            )
+            
+            if update_res.status_code == 200:
+                print(f"✅ Successfully registered Chat ID and User ID to {docname}")
                 return True
             else:
-                print(f"❌ Registration Rejected. Status: {response.status_code}")
-                print(f"❌ Error Details: {response.text}")
+                print(f"❌ PUT failed. Code: {update_res.status_code} | Error: {update_res.text}")
                 return False
-        except Exception as e:
-            print(f"ERPNext API Error (Register): {e}")
-            return False
+                
+        print(f"❌ GET request for {doctype} failed or found no active records.")
+        return False
+
+    def logout_resident(self, flat_number: str, chat_id: str) -> bool:
+        """Clears the chat ID from the resident's active record."""
+        for doctype in ["Owners", "Tenants"]:
+            params = {
+                "filters": json.dumps([["telegram_chat_id", "=", str(chat_id)], ["flat", "=", flat_number]]), 
+                "fields": '["name"]'
+            }
+            res = requests.get(f"{self.base_url}/{doctype}", headers=self.headers, params=params)
+            
+            if res.status_code == 200 and res.json().get("data"):
+                docname = res.json()["data"][0]["name"]
+                requests.put(f"{self.base_url}/{doctype}/{docname}", headers=self.headers, json={"telegram_chat_id": ""})
+                return True
+        return True
+
     def update_resident_field(self, flat_number: str, is_rented: bool, field_type: str, new_value: str) -> bool:
-        """Updates specific profile fields (phone or email)."""
-        url = f"{self.base_url}/Customer/{flat_number}"
+        """Updates email or phone number dynamically for the active resident."""
+        doctype = "Tenants" if is_rented else "Owners"
+        target_field = "mobile_no" if field_type == "phone" else "email"
 
-        # Target the correct field based on role
-        if field_type == "phone":
-            target_field = "custom_tenant_phone" if is_rented else "custom_owner_phone"
-        elif field_type == "email":
-            target_field = "custom_tenant_email" if is_rented else "email_id" 
-        else:
-            return False
-
-        payload = { target_field: new_value }
-
-        try:
-            response = requests.put(url, headers=self.headers, json=payload)
-            return response.status_code == 200
-        except Exception as e:
-            print(f"ERPNext API Error (Update Field): {e}")
-            return False
+        params = {
+            "filters": json.dumps([["flat", "=", flat_number], ["active", "=", 1]]), 
+            "fields": '["name"]'
+        }
+        res = requests.get(f"{self.base_url}/{doctype}", headers=self.headers, params=params)
+        
+        if res.status_code == 200 and res.json().get("data"):
+            docname = res.json()["data"][0]["name"]
+            update_res = requests.put(f"{self.base_url}/{doctype}/{docname}", headers=self.headers, json={target_field: new_value})
+            return update_res.status_code == 200
+            
+        return False
     def create_maintenance_ticket(self, flat_number: str, category: str, description: str) -> str:
         """Creates a Maintenance Ticket and returns the new Ticket ID."""
         url = f"{self.base_url}/Maintenance Ticket"
@@ -215,7 +222,6 @@ class ERPClient:
             "folder": "Home/Attachments",
             "doctype": "Maintenance Ticket",
             "docname": ticket_name,
-            "fieldname": "photo" # Ensure this matches your field name
         }
         
         response = requests.post(url, headers=upload_headers, files=files, data=data)
@@ -226,3 +232,163 @@ class ERPClient:
             print(f"Response: {response.text}")
             
         return response.status_code == 200
+
+    def get_attachments(self, doctype: str, docname: str) -> list:
+        """Fetches the list of attached files from ERPNext."""
+        
+        # 🛑 FIX: Removed /api/resource/ because self.base_url already includes it
+        url = f"{self.base_url}/File" 
+        
+        filters = [["attached_to_doctype", "=", doctype], ["attached_to_name", "=", docname]]
+        fields = ["name", "file_name", "file_url"]
+        
+        params = {
+            "filters": json.dumps(filters),
+            "fields": json.dumps(fields),
+            "limit_page_length": 10
+        }
+        
+        response = requests.get(url, headers=self.headers, params=params)
+        
+        if response.status_code == 200:
+            return response.json().get("data", [])
+        else:
+            print(f"DEBUG get_attachments Error: {response.status_code} - {response.text}")
+            
+        return []
+
+    def download_file(self, file_name: str) -> bytes:
+        """Fetches the actual image bytes from ERPNext."""
+        
+        # 1. Get the file document to find its exact URL path
+        url = f"{self.base_url}/File/{file_name}"
+        response = requests.get(url, headers=self.headers)
+        
+        if response.status_code == 200:
+            file_url = response.json().get("data", {}).get("file_url")
+            
+            if file_url:
+                # 2. Construct the full URL (handling both /files and /private/files)
+                # Since self.base_url is /api/resource, we split to get the root domain
+                root_url = self.base_url.split("/api/")[0]
+                full_download_url = f"{root_url}{file_url}"
+                
+                # 3. Download the actual image using our authenticated headers
+                img_response = requests.get(full_download_url, headers=self.headers)
+                
+                if img_response.status_code == 200:
+                    return img_response.content
+                    
+        return None
+    # 👆 END OF NEW BLOCK 👆
+
+
+    def create_preapproved_visitor(self, resident: str, visitor_name: str, date_preference: str) -> dict:
+        """Creates a pre-approved Visitor Log and returns the passcode."""
+        
+        # Calculate the actual date based on user selection
+        target_date = datetime.now()
+        if date_preference.lower() == "tomorrow":
+            target_date += timedelta(days=1)
+            
+        expected_date_str = target_date.strftime("%Y-%m-%d")
+        
+        # Generate a clean 5-digit numeric passcode
+        passcode = str(random.randint(10000, 99999))
+        
+        data = {
+            "doctype": "Visitor Log",
+            "resident": resident,
+            "visitor_name": visitor_name,
+            "status": "Approved",
+            "entry_type": "Pre-Approved",
+            "expected_date": expected_date_str,
+            "passcode": passcode
+        }
+        
+        response = requests.post(
+            f"{self.base_url}/Visitor Log", 
+            headers=self.headers, 
+            json=data
+        )
+        
+        if response.status_code == 200:
+            return {"success": True, "passcode": passcode, "docname": response.json().get("data", {}).get("name")}
+        return {"success": False, "error": response.text}
+
+    def get_visitor_history(self, resident: str, offset_weeks: int = 0) -> list:
+        """Fetches the visitor history for a specific flat."""
+        
+        end_date = datetime.now() - timedelta(weeks=offset_weeks)
+        start_date = end_date - timedelta(weeks=1)
+        
+        filters = [
+            ["resident", "=", resident],
+            ["creation", "between", [start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d 23:59:59")]]
+        ]
+        
+        params = {
+            "filters": json.dumps(filters),
+            "fields": '["visitor_name", "status", "creation", "entry_type"]',
+            "order_by": "creation desc"
+        }
+        
+        response = requests.get(f"{self.base_url}/Visitor Log", headers=self.headers, params=params)
+        if response.status_code == 200:
+            return response.json().get("data", [])
+        return []
+
+    def create_active_tenant(self, flat_number: str, tenant_data: dict) -> bool:
+        """Creates a new Active Tenant record and marks the flat as let out."""
+        # 1. Deactivate any currently active tenants for this flat to prevent overlap
+        params = {"filters": json.dumps([["flat", "=", flat_number], ["active", "=", 1]]), "fields": '["name"]'}
+        old_tenants = requests.get(f"{self.base_url}/Tenants", headers=self.headers, params=params).json().get("data", [])
+        for old in old_tenants:
+            requests.put(f"{self.base_url}/Tenants/{old['name']}", headers=self.headers, json={"active": 0})
+
+        # 2. Insert the new Tenant Record
+        payload = {
+            "flat": flat_number,
+            "tenant_name": tenant_data.get("tenant_name"),
+            "relationship": tenant_data.get("relationship"),
+            "mobile_no": tenant_data.get("mobile"),
+            "email": tenant_data.get("email"),
+            "start_date": tenant_data.get("start_date"),
+            "active": 1,
+            "registration_status": "Not Registered"
+        }
+        
+        # Handle optional End Date
+        end_date = tenant_data.get("end_date")
+        if end_date and end_date.upper() != "NA":
+            payload["end_date"] = end_date
+
+        res = requests.post(f"{self.base_url}/Tenants", headers=self.headers, json=payload)
+        
+        if res.status_code == 200:
+            # 3. Toggle the Flat's 'Let Out' status
+            requests.put(f"{self.base_url}/Customer/{flat_number}", headers=self.headers, json={"custom_let_out_for_rent": 1})
+            return True
+        return False
+    def deactivate_tenant(self, flat_number: str) -> bool:
+        """Deactivates the active tenant and marks flat as self-occupied."""
+        # 1. Find the currently active tenant for the flat
+        params = {"filters": json.dumps([["flat", "=", flat_number], ["active", "=", 1]]), "fields": '["name"]'}
+        active_tenants = requests.get(f"{self.base_url}/Tenants", headers=self.headers, params=params).json().get("data", [])
+        
+        if not active_tenants:
+            return False
+            
+        success = False
+        
+        # 2. Deactivate the tenant record(s)
+        for tenant in active_tenants:
+            res = requests.put(f"{self.base_url}/Tenants/{tenant['name']}", headers=self.headers, json={"active": 0})
+            if res.status_code == 200:
+                success = True
+                
+        # 3. Update the Flat status back to self-occupied (0)
+        if success:
+            requests.put(f"{self.base_url}/Customer/{flat_number}", headers=self.headers, json={"custom_let_out_for_rent": 0})
+            
+        return success

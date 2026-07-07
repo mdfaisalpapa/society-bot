@@ -1,3 +1,4 @@
+import os
 import requests
 import json
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_API_URL
@@ -38,3 +39,23 @@ class TelegramService:
             return f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
         
         return None
+    def send_photo(self, chat_id: str, photo_bytes: bytes, caption: str = ""):
+        """Sends a raw byte array as a photo to Telegram."""
+        
+        # 1. Grab the token directly from the environment
+        token = os.getenv("TELEGRAM_BOT_TOKEN")
+        
+        # 2. Construct the official Telegram API URL
+        url = f"https://api.telegram.org/bot{token}/sendPhoto"
+        
+        # 3. Telegram requires files to be sent as multipart/form-data
+        files = {"photo": ("image.jpg", photo_bytes)}
+        data = {"chat_id": chat_id, "caption": caption}
+        
+        # 4. Post to Telegram
+        response = requests.post(url, files=files, data=data)
+        
+        if response.status_code != 200:
+            print(f"DEBUG Telegram Photo Error: {response.text}")
+            
+        return response.status_code == 200
