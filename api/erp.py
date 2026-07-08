@@ -208,34 +208,50 @@ class ERPClient:
         except:
             return {}
 
-    def upload_file_to_ticket(self, ticket_name: str, file_data: bytes):
-        # 1. Get the pure root URL by removing '/api/resource'
-        root_url = self.base_url.replace("/api/resource", "")
-        url = f"{root_url}/api/method/upload_file"
-        
-        # 2. Pop Content-Type so requests can set the multipart boundary automatically
-        upload_headers = self.headers.copy()
-        upload_headers.pop("Content-Type", None)
-        
-        # 3. Add the file with its MIME type
-        files = {"file": ("attachment.jpg", file_data, "image/jpeg")}
-        
-        # 4. Standard Frappe upload payload
-        data = {
-            "is_private": 0,
-            "folder": "Home/Attachments",
-            "doctype": "Maintenance Ticket",
-            "docname": ticket_name,
-        }
-        
-        response = requests.post(url, headers=upload_headers, files=files, data=data)
-        
-        if response.status_code != 200:
-            print(f"DEBUG: ERPNext Upload Failed")
-            print(f"Status: {response.status_code}")
-            print(f"Response: {response.text}")
+    def upload_file_to_ticket(self, ticket_name: str, file_data: bytes) -> bool:
+        """Wrapper for Maintenance Tickets (Public images)."""
+        result = self.upload_file(
+            doctype="Maintenance Ticket",
+            docname=ticket_name,
+            file_name="attachment.jpg",
+            file_data=file_data,
+            mime_type="image/jpeg",
+            is_private=0  # Tickets are usually public attachments
+        )
+        # The maintenance controller expects a boolean return
+        return result.get("success", False)
+
+    def upload_tenant_document(self, flat_number: str, file_data: bytes, file_name: str, mime_type: str) -> dict:
+        """Wrapper for Tenant Documents (Private PDFs/Images)."""
+        try:
+            # 1. Find the active tenant docname
+            params = {
+                # Change this line:
+                "filters": json.dumps([["flat", "=", flat_number.strip().upper()], ["active", "=", 1]]),
+                "fields": '["name"]'
+            }
+            res = requests.get(f"{self.base_url}/Tenants", headers=self.headers, params=params, timeout=10)
             
-        return response.status_code == 200
+            # DEBUG: Add this print to your server console
+            print(f"DEBUG: ERP Tenant Search Result: {res.status_code} | Data: {res.json().get('data')}")
+            
+            if res.status_code == 200 and res.json().get("data"):
+                docname = res.json().get("data")[0]["name"]
+                
+                # 2. Use the universal uploader
+                return self.upload_file(
+                    doctype="Tenants",
+                    docname=docname,
+                    file_name=file_name,
+                    file_data=file_data,
+                    mime_type=mime_type,
+                    is_private=1 
+                )
+                
+            return {"success": False, "error": "No active tenant found for this flat."}
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     def get_attachments(self, doctype: str, docname: str) -> list:
         """Fetches the list of attached files from ERPNext."""
@@ -452,3 +468,33 @@ class ERPClient:
             return True
             
         return False
+
+    def upload_file(self, doctype: str, docname: str, file_name: str, file_data: bytes, mime_type: str, is_private: int = 1) -> dict:
+        """A single, universal method to handle all file uploads to ERPNext."""
+        try:
+            root_url = self.base_url.replace("/api/resource", "")
+            url = f"{root_url}/api/method/upload_file"
+            
+            upload_headers = self.headers.copy()
+            upload_headers.pop("Content-Type", None)
+            
+            files = {"file": (file_name, file_data, mime_type)}
+            data = {
+                "is_private": is_private,
+                "folder": "Home/Attachments",
+                "doctype": doctype,
+                "docname": docname,
+            }
+            
+            # Enforce a 30-second timeout on the file upload
+            upload_res = requests.post(url, headers=upload_headers, files=files, data=data, timeout=30)
+            
+            if upload_res.status_code == 200:
+                return {"success": True}
+            else:
+                return {"success": False, "error": f"ERPNext Error {upload_res.status_code}: {upload_res.text}"}
+                
+        except requests.exceptions.Timeout:
+            return {"success": False, "error": "Upload timed out."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}

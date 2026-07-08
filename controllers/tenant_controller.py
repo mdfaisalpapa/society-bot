@@ -1,4 +1,5 @@
-import datetime
+import os
+import requests
 import json
 from services.messenger import Messenger
 from api.erp import ERPClient
@@ -120,6 +121,7 @@ class TenantController:
             )
             inline_keyboard = [
                 [{"text": "📱 Edit Phone", "callback_data": "/edit_tenant_phone"}, {"text": "✉️ Edit Email", "callback_data": "/edit_tenant_email"}],
+                [{"text": "📁 Manage Documents", "callback_data": "/tenant_docs"}], # 👈 NEW BUTTON
                 [{"text": "📅 Extend Tenancy", "callback_data": "/extend_tenant"}],
                 [{"text": "📜 Previous Tenants", "callback_data": "/previous_tenants"}],
                 [{"text": "❌ Deactivate Tenant", "callback_data": "/deactivate_tenant"}]
@@ -200,3 +202,125 @@ class TenantController:
             Messenger.send(platform, chat_id, "🏠 *Tenant Management*\n\nNo active tenant found.", inline_keyboard=inline_keyboard)
         else:
             Messenger.send(platform, chat_id, "❌ Failed to deactivate tenant. Please contact administration.")
+    def show_documents_menu(self, platform: str, chat_id: str):
+        """Displays the document upload sub-menu."""
+        reply = "📁 *Tenant Documents*\n\nPlease select the document you want to upload."
+        inline_keyboard = [
+            [{"text": "📄 Rental Agreement (PDF)", "callback_data": "/up_doc_rent"}],
+            [{"text": "🚓 Police Verification (PDF)", "callback_data": "/up_doc_pvc"}],
+            [{"text": "🪪 ID Proof (Image)", "callback_data": "/up_doc_id"}],
+            [{"text": "📸 Photo (Image)", "callback_data": "/up_doc_photo"}],
+            [{"text": "🔙 Back to Dashboard", "callback_data": "/tenant"}]
+        ]
+        Messenger.send(platform, chat_id, reply, inline_keyboard=inline_keyboard)
+
+    def start_document_upload(self, platform: str, chat_id: str, doc_type: str):
+        """Sets the session and sends the upload prompt."""
+        self.session.update_session(chat_id, module="tenant_docs", step=f"awaiting_{doc_type}")
+        
+        if doc_type in ["rent", "pvc"]:
+            req = "PDF file"
+            doc_name = "Rental Agreement" if doc_type == "rent" else "Police Verification"
+        else:
+            req = "Image (Photo)"
+            doc_name = "ID Proof" if doc_type == "id" else "Tenant Photo"
+            
+        reply = f"Module: Tenant Document\n\nPlease upload the *{doc_name}*.\n⚠️ Must be a *{req}*."
+        Messenger.send(platform, chat_id, reply, force_reply=True)
+
+    def handle_document_upload(self, platform: str, chat_id: str, flat_number: str, message: dict, session_data: dict):
+        """Validates file type natively, downloads from Telegram, and pushes to ERPNext."""
+        try:
+            import os
+            import requests
+            
+            step = session_data.get("step", "")
+            
+            is_pdf_required = step in ["awaiting_rent", "awaiting_pvc"]
+            is_img_required = step in ["awaiting_id", "awaiting_photo"]
+            
+            file_id = None
+            file_name = f"{step.replace('awaiting_', '')}"
+            mime_type = ""
+            
+            # 1. Strict PDF Validation
+            if is_pdf_required:
+                document = message.get("document")
+                if not document or document.get("mime_type") != "application/pdf":
+                    Messenger.send(platform, chat_id, "❌ Invalid format. Please upload a PDF file.")
+                    return
+                file_id = document.get("file_id")
+                file_name = f"{file_name}.pdf"
+                mime_type = "application/pdf"
+                
+            # 2. Strict Image Validation
+            if is_img_required:
+                photo = message.get("photo")
+                document = message.get("document")
+                
+                if photo:
+                    file_id = photo[-1].get("file_id") # Telegram sends sizes in an array; [-1] is highest res
+                    file_name = f"{file_name}.jpg"
+                    mime_type = "image/jpeg"
+                elif document and "image" in document.get("mime_type", ""):
+                    file_id = document.get("file_id")
+                    file_name = f"{file_name}.jpg"
+                    mime_type = document.get("mime_type")
+                else:
+                    Messenger.send(platform, chat_id, "❌ Invalid format. Please upload an Image file.")
+                    return
+                    
+            if not file_id:
+                Messenger.send(platform, chat_id, "❌ No valid file found in your message.")
+                return
+                
+            Messenger.send(platform, chat_id, "⏳ Uploading document securely... Please wait.")
+                
+            # 3. Securely fetch Bot Token (Checks OS env, then falls back to config.py)
+
+            bot_token = os.getenv("SOCIETY_BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
+            if not bot_token:
+                try:
+                    import config
+                    bot_token = getattr(config, "SOCIETY_BOT_TOKEN", getattr(config, "TELEGRAM_BOT_TOKEN", None))
+                except ImportError:
+                    pass
+                    
+            if not bot_token:
+                Messenger.send(platform, chat_id, "❌ Fatal Error: Bot token not found in environment or config.py")
+                return
+                
+            # 4. Download from Telegram
+            file_info_url = f"https://api.telegram.org/bot{bot_token}/getFile?file_id={file_id}"
+            file_info_res = requests.get(file_info_url).json()
+            
+            if not file_info_res.get("ok"):
+                error_desc = file_info_res.get('description', 'Unknown error')
+                Messenger.send(platform, chat_id, f"❌ Failed to fetch file from Telegram API: {error_desc}")
+                return
+                
+            file_path = file_info_res["result"]["file_path"]
+            download_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
+            file_data = requests.get(download_url).content
+            
+            # 5. Push to ERPNext
+            print("DEBUG: Calling upload_tenant_document...")
+            result = self.erp.upload_tenant_document(flat_number, file_data, file_name, mime_type)
+            print(f"DEBUG: ERP API Response: {result}")
+            
+            self.session.clear_session(chat_id)
+            
+            # Use this explicit check
+            if isinstance(result, dict) and result.get("success"):
+                print("DEBUG: Sending success message...")
+                Messenger.send(platform, chat_id, "✅ Document securely attached to the tenant record!")
+                print("DEBUG: Success message sent.")
+            else:
+                error_msg = result.get("error", "Unknown error") if isinstance(result, dict) else "Function failed"
+                Messenger.send(platform, chat_id, f"❌ Failed to save document: {error_msg}")
+                
+        except Exception as e:
+            # This captures the exact silent crash and prints it to you in Telegram!
+            error_msg = f"❌ An internal error occurred: {str(e)}"
+            Messenger.send(platform, chat_id, error_msg)
+            print(error_msg)

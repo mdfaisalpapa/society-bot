@@ -28,12 +28,26 @@ class ConversationEngine:
         message = update.get("message", {})
         chat_id = str(message.get("chat", {}).get("id"))
         
+        # 3. HANDLE FILE UPLOADS FIRST
         if message.get("photo") or message.get("document"):
             reply_to = message.get("reply_to_message", {})
             if "Module: Maintenance Ticket" in reply_to.get("text", ""):
                 text_content = reply_to.get("text", "")
                 ticket_id = self._extract_id_from_text(text_content)
                 self.maintenance_controller.handle_file_upload(platform, chat_id, ticket_id, message)
+                return
+            
+            # 👇 NEW: Catch Tenant Documents 👇
+            elif "Module: Tenant Document" in reply_to.get("text", ""):
+                active_profile = self.erp_client.get_profile_by_chat_id(chat_id)
+                current_session = self.session_manager.get_session(chat_id)
+                
+                # STRICT OWNER CHECK
+                if not active_profile or str(active_profile.telegram_chat_id) != str(chat_id):
+                    Messenger.send(platform, chat_id, "❌ Unauthorized. Only Flat Owners can upload documents.")
+                    return
+                    
+                self.tenant_controller.handle_document_upload(platform, chat_id, active_profile.flat_number, message, current_session)
                 return
         
         callback_query = update.get("callback_query", {})
@@ -57,7 +71,7 @@ class ConversationEngine:
         current_session = self.session_manager.get_session(chat_id)
         
         # GLOBAL COMMAND OVERRIDE
-        if text.startswith("/") and text not in ["/rel_Tenant", "/rel_Caretaker", "/rel_Company Lease", "/rel_Guest House", "/confirm_tenant"]:
+        if text.startswith("/") and text not in ["/rel_Tenant", "/rel_Caretaker", "/rel_Company Lease", "/rel_Guest House", "/confirm_tenant", "/reg_role_Owner", "/reg_role_Tenant"]:
             self.session_manager.clear_session(chat_id)
             current_session = {} 
             if text == "/cancel":
@@ -196,6 +210,19 @@ class ConversationEngine:
                     self.tenant_controller.show_previous_tenants(platform, chat_id, active_profile.flat_number)
                 elif text == "/reactivate_tenant":
                     self.tenant_controller.process_reactivation(platform, chat_id, active_profile.flat_number)
+        # --- Tenant Management Routing ---
+        elif text == "/tenant_docs":
+            if active_profile and str(active_profile.telegram_chat_id) != str(chat_id):
+                Messenger.send(platform, chat_id, "❌ Unauthorized action.")
+            else:
+                self.tenant_controller.show_documents_menu(platform, chat_id)
+                
+        elif text in ["/up_doc_rent", "/up_doc_pvc", "/up_doc_id", "/up_doc_photo"]:
+            if active_profile and str(active_profile.telegram_chat_id) != str(chat_id):
+                Messenger.send(platform, chat_id, "❌ Unauthorized action.")
+            else:
+                doc_type = text.replace("/up_doc_", "")
+                self.tenant_controller.start_document_upload(platform, chat_id, doc_type)
                     
         elif text == "/add_tenant":
             if active_profile and str(active_profile.telegram_chat_id) != str(chat_id):
