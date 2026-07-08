@@ -52,9 +52,14 @@ class ERPClient:
             is_rented=is_rented,
             telegram_chat_id=owner_data.get("telegram_chat_id"),
             tenant_telegram_chat_id=tenant_data.get("telegram_chat_id"),
-            parking_slot=cust_data.get("custom_parking_slot")
+            parking_slot=cust_data.get("custom_parking_slot"),
+            
+            # 👇 ADD THESE 4 NEW LINES 👇
+            tenant_relationship=tenant_data.get("relationship"),
+            tenant_start_date=tenant_data.get("start_date"),
+            tenant_end_date=tenant_data.get("end_date"),
+            tenant_status=tenant_data.get("registration_status")
         )
-
     def get_profile_by_chat_id(self, chat_id: str) -> ResidentProfile:
         """Searches specifically for Active Owners or Active Tenants by Chat ID."""
         # 1. Search Active Owners
@@ -77,17 +82,12 @@ class ERPClient:
             
         return None
 
-    def register_resident(self, flat_number: str, chat_id: str, user_id: str) -> bool:
-        """Registers the chat ID and user ID directly to the Active Owner or Tenant record."""
-        # Force uppercase to ensure exact Link field matching
+    def register_resident(self, flat_number: str, chat_id: str, user_id: str, role: str) -> bool:
+        """Registers the chat ID and user ID directly to the explicitly specified role."""
         flat_number = str(flat_number).upper().strip()
         
-        profile = self.get_resident_profile(flat_number)
-        if not profile: 
-            print(f"❌ Could not fetch base profile for {flat_number}")
-            return False
-
-        doctype = "Tenants" if profile.is_rented else "Owners"
+        # Explicitly set the doctype based on the user's selection
+        doctype = "Tenants" if role == "Tenant" else "Owners"
         
         # Look up the specific document name (e.g., TC2-411-O1)
         params = {
@@ -112,7 +112,7 @@ class ERPClient:
             )
             
             if update_res.status_code == 200:
-                print(f"✅ Successfully registered Chat ID and User ID to {docname}")
+                print(f"✅ Successfully registered Chat ID and User ID to {docname} as {role}")
                 return True
             else:
                 print(f"❌ PUT failed. Code: {update_res.status_code} | Error: {update_res.text}")
@@ -120,7 +120,6 @@ class ERPClient:
                 
         print(f"❌ GET request for {doctype} failed or found no active records.")
         return False
-
     def logout_resident(self, flat_number: str, chat_id: str) -> bool:
         """Clears the chat ID from the resident's active record."""
         for doctype in ["Owners", "Tenants"]:
@@ -136,22 +135,27 @@ class ERPClient:
                 return True
         return True
 
-    def update_resident_field(self, flat_number: str, is_rented: bool, field_type: str, new_value: str) -> bool:
-        """Updates email or phone number dynamically for the active resident."""
-        doctype = "Tenants" if is_rented else "Owners"
+    def update_resident_field(self, flat_number: str, chat_id: str, field_type: str, new_value: str) -> bool:
+        """Updates email or phone dynamically by tracking down the exact user's chat_id."""
         target_field = "mobile_no" if field_type == "phone" else "email"
 
-        params = {
-            "filters": json.dumps([["flat", "=", flat_number], ["active", "=", 1]]), 
-            "fields": '["name"]'
-        }
-        res = requests.get(f"{self.base_url}/{doctype}", headers=self.headers, params=params)
-        
-        if res.status_code == 200 and res.json().get("data"):
-            docname = res.json()["data"][0]["name"]
-            update_res = requests.put(f"{self.base_url}/{doctype}/{docname}", headers=self.headers, json={target_field: new_value})
-            return update_res.status_code == 200
+        # Check both Owners and Tenants tables to see where this exact chat_id lives
+        for doctype in ["Owners", "Tenants"]:
+            params = {
+                "filters": json.dumps([
+                    ["telegram_chat_id", "=", str(chat_id)], 
+                    ["flat", "=", flat_number], 
+                    ["active", "=", 1]
+                ]), 
+                "fields": '["name"]'
+            }
+            res = requests.get(f"{self.base_url}/{doctype}", headers=self.headers, params=params)
             
+            if res.status_code == 200 and res.json().get("data"):
+                docname = res.json()["data"][0]["name"]
+                update_res = requests.put(f"{self.base_url}/{doctype}/{docname}", headers=self.headers, json={target_field: new_value})
+                return update_res.status_code == 200
+                
         return False
     def create_maintenance_ticket(self, flat_number: str, category: str, description: str) -> str:
         """Creates a Maintenance Ticket and returns the new Ticket ID."""
@@ -392,3 +396,59 @@ class ERPClient:
             requests.put(f"{self.base_url}/Customer/{flat_number}", headers=self.headers, json={"custom_let_out_for_rent": 0})
             
         return success
+
+    def update_tenant_details(self, flat_number: str, field_type: str, new_value: str) -> bool:
+        """Specifically targets and updates the active Tenant record for a given flat."""
+        if field_type == "phone":
+            target_field = "mobile_no"
+        elif field_type == "email":
+            target_field = "email"
+        elif field_type == "end_date":
+            target_field = "end_date"
+        else:
+            return False
+            
+        params = {
+            "filters": json.dumps([["flat", "=", flat_number], ["active", "=", 1]]), 
+            "fields": '["name"]'
+        }
+        res = requests.get(f"{self.base_url}/Tenants", headers=self.headers, params=params)
+        
+        if res.status_code == 200 and res.json().get("data"):
+            docname = res.json()["data"][0]["name"]
+            update_res = requests.put(f"{self.base_url}/Tenants/{docname}", headers=self.headers, json={target_field: new_value})
+            return update_res.status_code == 200
+            
+        return False
+    def get_previous_tenants(self, flat_number: str) -> list:
+        """Fetches the last 5 inactive tenants for a specific flat."""
+        params = {
+            "filters": json.dumps([["flat", "=", flat_number], ["active", "=", 0]]),
+            "fields": '["tenant_name", "mobile_no", "start_date", "end_date", "name"]',
+            "order_by": "modified desc",
+            "limit_page_length": 5
+        }
+        res = requests.get(f"{self.base_url}/Tenants", headers=self.headers, params=params)
+        return res.json().get("data", []) if res.status_code == 200 else []
+
+    def reactivate_last_tenant(self, flat_number: str) -> bool:
+        """Finds the most recently deactivated tenant and restores their access."""
+        past_tenants = self.get_previous_tenants(flat_number)
+        
+        if not past_tenants:
+            return False
+            
+        target_docname = past_tenants[0]["name"]
+        
+        # 1. Safely deactivate any currently active tenant first to avoid overlaps
+        self.deactivate_tenant(flat_number)
+        
+        # 2. Reactivate the historical tenant
+        res = requests.put(f"{self.base_url}/Tenants/{target_docname}", headers=self.headers, json={"active": 1})
+        
+        # 3. Ensure the flat is marked as let out
+        if res.status_code == 200:
+            requests.put(f"{self.base_url}/Customer/{flat_number}", headers=self.headers, json={"custom_let_out_for_rent": 1})
+            return True
+            
+        return False

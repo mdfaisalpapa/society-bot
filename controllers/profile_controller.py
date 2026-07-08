@@ -9,24 +9,36 @@ class ProfileController:
         self.session = session_manager
 
     def show_profile(self, platform: str, chat_id: str, profile: ResidentProfile):
-        """Displays the user's profile with inline buttons."""
-        role = "Tenant" if profile.is_rented else "Owner"
-        phone = profile.tenant_phone if profile.is_rented else profile.owner_phone
+        """Displays the user's profile with inline buttons based on chat_id."""
+        
+        # 1. Determine Identity based on Chat ID
+        is_owner = str(profile.telegram_chat_id) == str(chat_id)
+        
+        # 2. Assign variables based on identity
+        role = "Flat Owner" if is_owner else "Tenant"
+        name = profile.owner_name if is_owner else profile.tenant_name
+        phone = profile.owner_phone if is_owner else profile.tenant_phone
+        email = profile.owner_email if is_owner else profile.tenant_email
         
         text = (
             f"🏠 *My Profile*\n\n"
             f"🏢 *Flat:* {profile.flat_number}\n"
-            f"👤 *{role}:* {profile.display_name or 'Not set'}\n"
+            f"🧑‍💼 *Role:* {role}\n"
+            f"📛 *Name:* {name or 'Not set'}\n"
             f"📞 *Phone:* {phone or 'Not set'}\n"
-            f"✉️ *Email:* {profile.active_email or 'Not set'}\n"
+            f"✉️ *Email:* {email or 'Not set'}\n"
             f"🚗 *Parking:* {profile.parking_slot or 'Not set'}\n"
         )
         
-        # Clean, generic Python list for the options
-        generic_grid = [
-            [{"📱 Edit Phone": "/edit_phone"}, {"✉️ Edit Email": "/edit_email"}],
-            [{"🚪 Logout": "/logout"}]
-        ]
+        # 3. Dynamically build the grid
+        generic_grid = []
+        
+        # Only inject the edit buttons if the user is the Owner
+        if is_owner:
+            generic_grid.append([{"📱 Edit Phone": "/edit_phone"}, {"✉️ Edit Email": "/edit_email"}])
+            
+        # Everyone gets the logout button
+        generic_grid.append([{"🚪 Logout": "/logout"}])
         
         Messenger.send(platform, chat_id, text, grid=generic_grid)
 
@@ -42,7 +54,10 @@ class ProfileController:
 
     def start_edit_phone(self, platform: str, chat_id: str, profile: ResidentProfile):
         """Step 1: Check if phone exists. Offer to clear, or ask to share contact."""
-        current_phone = profile.tenant_phone if profile.is_rented else profile.owner_phone
+        
+        # Determine Identity based on Chat ID
+        is_owner = str(profile.telegram_chat_id) == str(chat_id)
+        current_phone = profile.owner_phone if is_owner else profile.tenant_phone
         
         if current_phone:
             self.session.update_session(chat_id, step="awaiting_phone_action", module="profile")
@@ -80,7 +95,9 @@ class ProfileController:
     def save_edited_field(self, platform: str, chat_id: str, profile: ResidentProfile, field_type: str, new_value: str, remove_keyboard: bool = False):
         """Step 2: Save to ERPNext and clear session."""
         clean_value = new_value.strip()
-        success = self.erp.update_resident_field(profile.flat_number, profile.is_rented, field_type, clean_value)
+        
+        # UPDATE THIS LINE: Pass chat_id instead of profile.is_rented
+        success = self.erp.update_resident_field(profile.flat_number, chat_id, field_type, clean_value)
 
         self.session.clear_session(chat_id)
 

@@ -1,6 +1,6 @@
 from services.messenger import Messenger
-from api.erp import ERPClient
 from conversation.session import SessionManager
+from api.erp import ERPClient
 
 class RegistrationController:
     def __init__(self, erp_client: ERPClient, session_manager: SessionManager):
@@ -8,77 +8,85 @@ class RegistrationController:
         self.session = session_manager
 
     def start_registration(self, platform: str, chat_id: str):
-        """Step 1: Ask for the flat number."""
-        self.session.update_session(chat_id, step="awaiting_flat", module="register")
-        Messenger.send(
-            platform,
-            chat_id, 
-            "📝 *Registration*\n\nPlease enter your Flat Number (e.g., TC2-411):",
-            force_reply=True
-        )
+        self.session.update_session(chat_id, module="register", step="awaiting_flat", data={})
+        Messenger.send(platform, chat_id, "🏢 *Registration*\n\nPlease enter your Flat Number (e.g., TC2-411):", force_reply=True)
 
-    def process_flat_number(self, platform: str, chat_id: str, flat_number: str):
-        """Step 2: Check the flat and enforce security if a phone is set."""
-        clean_flat = flat_number.strip().upper()
-        
-        # 1. Fetch the flat to check for existing phone numbers
-        profile = self.erp.get_resident_profile(clean_flat)
+    def process_flat_number(self, platform: str, chat_id: str, text: str):
+        flat_number = text.strip().upper()
+        profile = self.erp.get_resident_profile(flat_number)
         
         if not profile:
-            self.session.clear_session(chat_id)
-            Messenger.send(platform, chat_id, "❌ Flat not found. Please verify the flat number and try /register again.")
+            Messenger.send(platform, chat_id, "❌ Flat not found. Please check the number and try again.", force_reply=True)
             return
 
-        # Get the relevant phone number based on occupancy
-        existing_phone = profile.tenant_phone if profile.is_rented else profile.owner_phone
-
-        if existing_phone:
-            # SECURITY GATE: Phone exists. Ask to verify via native contact.
-            self.session.update_session(
-                chat_id, 
-                step="awaiting_registration_contact", 
-                module="register",
-                data={"target_flat": clean_flat, "expected_phone": existing_phone}
-            )
-            
-            # Mask the phone number for privacy
-            masked_phone = f"******{existing_phone[-4:]}" if len(existing_phone) >= 4 else existing_phone
-            
-            Messenger.send(
-                platform,
-                chat_id, 
-                f"🔒 This flat is protected.\n\nPlease verify your identity by sharing your registered phone number ({masked_phone}):",
-                request_contact="📱 Share Contact to Verify"
-            )
+        # THE FORK: If the flat is rented, ask who is registering
+        if profile.is_rented:
+            self.session.update_session(chat_id, module="register", step="awaiting_role", data={"flat": flat_number})
+            inline_keyboard = [
+                [{"text": "👤 Flat Owner", "callback_data": "/reg_role_Owner"}],
+                [{"text": "🏠 Tenant", "callback_data": "/reg_role_Tenant"}]
+            ]
+            Messenger.send(platform, chat_id, f"Flat {flat_number} is marked as rented.\nAre you registering as the Owner or the Tenant?", inline_keyboard=inline_keyboard)
         else:
-            # NO PHONE ON FILE: Proceed with direct registration
-            # FIX APPLIED: Passing chat_id for both the chat_id and user_id arguments
-            success = self.erp.register_resident(clean_flat, chat_id, chat_id)
-            self.session.clear_session(chat_id)
-            
-            if success:
-                Messenger.send(platform, chat_id, f"✅ Successfully registered to {clean_flat}!\n\nType /profile to view your dashboard.")
-            else:
-                Messenger.send(platform, chat_id, "❌ Registration failed in ERPNext. Please contact Admin.")
+            # If self-occupied, bypass the fork and default to Owner
+            self.session.update_session(chat_id, module="register", step="awaiting_registration_contact", data={"flat": flat_number, "role": "Owner"})
+            Messenger.send(platform, chat_id, f"✅ Flat {flat_number} found.\n\nPlease click the button below to share your contact details for verification.", request_contact="📱 Share Contact")
+
+    def process_role_selection(self, platform: str, chat_id: str, text: str, session_data: dict):
+        if text.startswith("/reg_role_"):
+            role = text.replace("/reg_role_", "")
+            session_data["role"] = role
+            self.session.update_session(chat_id, module="register", step="awaiting_registration_contact", data=session_data)
+            Messenger.send(platform, chat_id, f"✅ Registering as {role}.\n\nPlease click the button below to share your contact details for verification.", request_contact="📱 Share Contact")
+        else:
+            Messenger.send(platform, chat_id, "Please use the buttons provided to select your role.")
 
     def verify_and_register_contact(self, platform: str, chat_id: str, user_id: str, contact_data: dict, session_data: dict):
-        """Step 3: Compare shared contact with ERPNext data and register if matched."""
-        expected_phone = session_data.get("expected_phone", "")
-        target_flat = session_data.get("target_flat", "")
+        flat_number = session_data.get("flat")
+        role = session_data.get("role")
         
-        # Clean both numbers for safe comparison
-        clean_expected = ''.join(filter(str.isdigit, expected_phone))
-        clean_shared = ''.join(filter(str.isdigit, contact_data.get("phone_number", "")))
-        
-        # Compare the last 10 digits
-        if clean_expected[-10:] == clean_shared[-10:]:
-            success = self.erp.register_resident(target_flat, chat_id, user_id)
+        # 1. Fetch fresh profile from ERP
+        profile = self.erp.get_resident_profile(flat_number)
+        if not profile:
             self.session.clear_session(chat_id)
+            Messenger.send(platform, chat_id, "❌ Profile not found.", remove_keyboard=True)
+            return
+
+        # Normalize the shared phone number (remove +, spaces, dashes)
+        shared_phone = str(contact_data.get("phone_number", "")).replace("+", "").replace(" ", "").replace("-", "")
+        
+        # 2. Validation Logic based on Role
+        if role == "Owner":
+            expected_phone = str(profile.owner_phone or "").replace("+", "").replace(" ", "").replace("-", "")
+            # If owner phone is set in ERP, it MUST match the shared contact
+            if expected_phone and expected_phone not in shared_phone and shared_phone not in expected_phone:
+                self.session.clear_session(chat_id)
+                Messenger.send(platform, chat_id, "❌ Verification failed. The shared phone number does not match the registered Owner's number.", remove_keyboard=True)
+                return
+                
+        elif role == "Tenant":
+            expected_phone = str(profile.tenant_phone or "").replace("+", "").replace(" ", "").replace("-", "")
+            # Tenant phone MUST be set by the owner first
+            if not expected_phone:
+                self.session.clear_session(chat_id)
+                Messenger.send(platform, chat_id, "❌ Registration blocked. The Flat Owner must add your details via the bot before you can register.", remove_keyboard=True)
+                return
+            # And it MUST match the shared contact
+            if expected_phone not in shared_phone and shared_phone not in expected_phone:
+                self.session.clear_session(chat_id)
+                Messenger.send(platform, chat_id, "❌ Verification failed. The shared phone number does not match the Tenant number pre-approved by the Owner.", remove_keyboard=True)
+                return
+
+        # 3. Proceed with Registration
+        success = self.erp.register_resident(flat_number, chat_id, user_id, role)
+        
+        # 4. If Owner phone was empty, safely update it with the verified number now
+        if role == "Owner" and not expected_phone and success:
+            self.erp.update_resident_field(flat_number, chat_id, "phone", shared_phone)
             
-            if success:
-                Messenger.send(platform, chat_id, f"✅ Identity verified! Successfully registered to {target_flat}.", remove_keyboard=True)
-            else:
-                Messenger.send(platform, chat_id, "❌ Verification succeeded, but ERPNext rejected the update.", remove_keyboard=True)
+        if success:
+            self.session.clear_session(chat_id)
+            Messenger.send(platform, chat_id, "🎉 *Registration Successful!*\n\nWelcome to the Society Bot. Use /menu to view available services.", remove_keyboard=True)
         else:
             self.session.clear_session(chat_id)
-            Messenger.send(platform, chat_id, "❌ Phone number mismatch. Registration denied.", remove_keyboard=True)
+            Messenger.send(platform, chat_id, "❌ Registration failed. We couldn't link your account. Please contact the administration.", remove_keyboard=True)
