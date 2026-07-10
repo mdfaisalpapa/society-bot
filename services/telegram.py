@@ -39,23 +39,33 @@ class TelegramService:
             return f"https://api.telegram.org/file/bot{TELEGRAM_BOT_TOKEN}/{file_path}"
         
         return None
-    def send_photo(self, chat_id: str, photo_bytes: bytes, caption: str = ""):
-        """Sends a raw byte array as a photo to Telegram."""
+    @staticmethod
+    def send_photo(chat_id: str, photo_bytes: bytes, caption: str = "", reply_markup: dict = None):
+        """Sends a raw byte array as a photo to Telegram with optional markup."""
         
-        # 1. Grab the token directly from the environment
-        token = os.getenv("TELEGRAM_BOT_TOKEN")
+        # 1. Use the official Telegram API URL from your config
+        url = f"{TELEGRAM_API_URL}/sendPhoto"
         
-        # 2. Construct the official Telegram API URL
-        url = f"https://api.telegram.org/bot{token}/sendPhoto"
+        # 2. Telegram requires files to be sent as multipart/form-data
+        files = {"photo": ("gatepass.png", photo_bytes, "image/png")}
         
-        # 3. Telegram requires files to be sent as multipart/form-data
-        files = {"photo": ("image.jpg", photo_bytes)}
-        data = {"chat_id": chat_id, "caption": caption}
+        # 3. Construct the data payload
+        data = {
+            "chat_id": chat_id,
+            "caption": caption,
+            "parse_mode": "Markdown"
+        }
         
-        # 4. Post to Telegram
-        response = requests.post(url, files=files, data=data)
+        # 4. Attach the translated inline keyboard if it exists
+        if reply_markup:
+            data["reply_markup"] = json.dumps(reply_markup)
         
-        if response.status_code != 200:
-            print(f"DEBUG Telegram Photo Error: {response.text}")
-            
-        return response.status_code == 200
+        # 5. Post to Telegram
+        try:
+            response = requests.post(url, files=files, data=data)
+            if response.status_code != 200:
+                print(f"DEBUG Telegram Photo Error: {response.text}")
+            return response.status_code == 200
+        except Exception as e:
+            print(f"Telegram API Error: {e}")
+            return False

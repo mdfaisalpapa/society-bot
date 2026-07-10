@@ -15,12 +15,17 @@ class ResidentProfile:
     tenant_telegram_chat_id: Optional[str] = None
     parking_slot: Optional[str] = None
     
-    # NEW: Extended Tenant Details
+    # Extended Tenant Details
     tenant_relationship: Optional[str] = None
     tenant_start_date: Optional[str] = None
     tenant_end_date: Optional[str] = None
     tenant_status: Optional[str] = None
-
+    tenant_id: Optional[str] = None
+    tenant_remarks: Optional[str] = None
+    
+    # 👇 ADD THIS LINE 👇
+    is_telegram_registered: bool = False
+    
     @property
     def active_chat_id(self) -> Optional[str]:
         return self.tenant_telegram_chat_id if self.is_rented else self.telegram_chat_id

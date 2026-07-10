@@ -68,9 +68,19 @@ class Messenger:
         return markup if markup else None
 
     @staticmethod
-    def send_photo(platform: str, chat_id: str, photo_bytes: bytes, caption: str = ""):
+    def send_photo(platform: str, chat_id: str, photo_bytes: bytes, caption: str = "", **kwargs):
+        """Universally routes photo messages with optional UI elements."""
         if platform == "telegram":
-            # Assuming you have a TelegramService instance imported/configured
-            return TelegramService().send_photo(chat_id, photo_bytes, caption)
+            # 1. Get the markup dictionary using your existing translator
+            telegram_markup = Messenger._format_for_telegram(**kwargs)
+            
+            # 2. Pass the dictionary DIRECTLY to TelegramService
+            TelegramService.send_photo(chat_id, photo_bytes, caption, telegram_markup)
+            
+        elif platform == "whatsapp":
+            # Ready for future WhatsApp implementation
+            pass
+        else:
+            print(f"❌ Messenger Error: Unknown platform '{platform}'")
 
     

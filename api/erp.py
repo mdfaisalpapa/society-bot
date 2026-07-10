@@ -54,11 +54,17 @@ class ERPClient:
             tenant_telegram_chat_id=tenant_data.get("telegram_chat_id"),
             parking_slot=cust_data.get("custom_parking_slot"),
             
-            # 👇 ADD THESE 4 NEW LINES 👇
             tenant_relationship=tenant_data.get("relationship"),
             tenant_start_date=tenant_data.get("start_date"),
             tenant_end_date=tenant_data.get("end_date"),
-            tenant_status=tenant_data.get("registration_status")
+            tenant_status=tenant_data.get("registration_status"),
+            
+            # 👇 ADD THIS LINE 👇
+            tenant_remarks=tenant_data.get("remarks"), # Change to custom_remarks if necessary
+            tenant_id=tenant_data.get("name"),
+            # 👇 UPDATED TO YOUR EXACT FIELD NAME 👇
+            is_telegram_registered=bool(tenant_data.get("registered_on_telegram"))
+            # ...
         )
     def get_profile_by_chat_id(self, chat_id: str) -> ResidentProfile:
         """Searches specifically for Active Owners or Active Tenants by Chat ID."""
@@ -303,42 +309,67 @@ class ERPClient:
     # 👆 END OF NEW BLOCK 👆
 
 
-    def create_preapproved_visitor(self, resident: str, visitor_name: str, date_preference: str) -> dict:
-        """Creates a pre-approved Visitor Log and returns the passcode."""
-        
-        # Calculate the actual date based on user selection
+    def get_frequent_visitors(self, resident: str) -> list:
+        """Fetches the 3 most frequent recent visitors to skip typing."""
+        params = {
+            "filters": json.dumps([["resident", "=", resident], ["visitor_name", "!=", "Delivery Agent"]]),
+            "fields": '["visitor_name"]',
+            "order_by": "creation desc",
+            "limit_page_length": 15
+        }
+        res = requests.get(f"{self.base_url}/Visitor%20Log", headers=self.headers, params=params)
+        if res.status_code == 200:
+            names = [doc["visitor_name"] for doc in res.json().get("data", []) if doc.get("visitor_name")]
+            # Return unique names, max 3
+            return list(dict.fromkeys(names))[:3]
+        return []
+
+    def create_preapproved_visitor(self, resident: str, visitor_name: str, date_preference: str,
+                                   purpose: str = "Guest", vehicle_no: str = "", end_date_pref: str = "") -> dict:
+        """Creates a pre-approved Visitor Log with extended details."""
         target_date = datetime.now()
         if date_preference.lower() == "tomorrow":
             target_date += timedelta(days=1)
-            
         expected_date_str = target_date.strftime("%Y-%m-%d")
-        
-        # Generate a clean 5-digit numeric passcode
-        passcode = str(random.randint(10000, 99999))
+
+        end_date_str = None
+        if end_date_pref:
+            end_target = target_date
+            if end_date_pref == "3days": end_target += timedelta(days=2)
+            elif end_date_pref == "1week": end_target += timedelta(days=6)
+            end_date_str = end_target.strftime("%Y-%m-%d")
+
+        # NEW CODE: Prefix with Flat Number for guaranteed uniqueness
+        safe_flat = resident.replace(" ", "_")
+        passcode = f"{safe_flat}_{random.randint(10000, 99999)}"
         
         data = {
-            "doctype": "Visitor Log",
             "resident": resident,
             "visitor_name": visitor_name,
             "status": "Approved",
             "entry_type": "Pre-Approved",
             "expected_date": expected_date_str,
+            "purpose_of_visit": purpose,
             "passcode": passcode
         }
         
-        response = requests.post(
-            f"{self.base_url}/Visitor Log", 
-            headers=self.headers, 
-            json=data
-        )
-        
-        if response.status_code == 200:
-            return {"success": True, "passcode": passcode, "docname": response.json().get("data", {}).get("name")}
-        return {"success": False, "error": response.text}
+        if end_date_str:
+            data["expected_end_date"] = end_date_str
+        if vehicle_no and vehicle_no.lower() != "skip":
+            data["vehicle_number"] = vehicle_no
+
+        url = f"{self.base_url}/Visitor%20Log"
+        try:
+            response = requests.post(url, headers=self.headers, json=data)
+            if response.status_code == 200:
+                return {"success": True, "passcode": passcode, "docname": response.json().get("data", {}).get("name")}
+            else:
+                return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
     def get_visitor_history(self, resident: str, offset_weeks: int = 0) -> list:
         """Fetches the visitor history for a specific flat."""
-        
         end_date = datetime.now() - timedelta(weeks=offset_weeks)
         start_date = end_date - timedelta(weeks=1)
         
@@ -349,7 +380,8 @@ class ERPClient:
         
         params = {
             "filters": json.dumps(filters),
-            "fields": '["visitor_name", "status", "creation", "entry_type"]',
+            # 👇 ADDED "expected_date" TO THIS LIST 👇
+            "fields": '["visitor_name", "status", "creation", "entry_type", "expected_date"]',
             "order_by": "creation desc"
         }
         
@@ -375,7 +407,7 @@ class ERPClient:
             "email": tenant_data.get("email"),
             "start_date": tenant_data.get("start_date"),
             "active": 1,
-            "registration_status": "Not Registered"
+            "registration_status": "Pending"
         }
         
         # Handle optional End Date
@@ -386,9 +418,13 @@ class ERPClient:
         res = requests.post(f"{self.base_url}/Tenants", headers=self.headers, json=payload)
         
         if res.status_code == 200:
-            # 3. Toggle the Flat's 'Let Out' status
             requests.put(f"{self.base_url}/Customer/{flat_number}", headers=self.headers, json={"custom_let_out_for_rent": 1})
             return True
+            
+        # Ensure these are here to catch the error:
+        print(f"❌ ERPNext Tenant Creation Failed: {res.status_code}")
+        print(f"❌ ERPNext Error Details: {res.text}")
+        
         return False
     def deactivate_tenant(self, flat_number: str) -> bool:
         """Deactivates the active tenant and marks flat as self-occupied."""
@@ -498,3 +534,176 @@ class ERPClient:
             return {"success": False, "error": "Upload timed out."}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+    def verify_visitor_passcode(self, passcode: str) -> dict:
+        """Verifies a passcode from a QR scan, checks date validity, and marks as Entered."""
+        import datetime
+        
+        # 1. Allow BOTH "Approved" and "Entered" statuses
+        params = {
+            "filters": json.dumps([
+                ["passcode", "=", passcode], 
+                ["status", "in", ["Approved", "Entered"]]
+            ]),
+            # Fetch the date fields to validate multi-day passes
+            "fields": '["name", "visitor_name", "resident", "vehicle_number", "expected_date", "expected_end_date", "status"]'
+        }
+        
+        try:
+            res = requests.get(f"{self.base_url}/Visitor%20Log", headers=self.headers, params=params)
+            if res.status_code == 200:
+                docs = res.json().get("data", [])
+                if not docs:
+                    return {"success": False, "error": "Invalid or revoked Gate Pass."}
+                
+                doc = docs[0]
+                docname = doc["name"]
+                
+                # 2. Date Validation Logic
+                today = datetime.datetime.now().date()
+                start_date_str = doc.get("expected_date")
+                end_date_str = doc.get("expected_end_date")
+                
+                # Parse strings to date objects safely
+                start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d").date() if start_date_str else today
+                # If no end date exists, the pass expires on the start date
+                end_date = datetime.datetime.strptime(end_date_str, "%Y-%m-%d").date() if end_date_str else start_date
+                
+                # Check if the pass is valid today
+                if today < start_date:
+                    return {"success": False, "error": f"Pass is not valid until {start_date_str}."}
+                if today > end_date:
+                    return {"success": False, "error": f"Pass expired on {end_date_str}."}
+                
+                # 3. Update status to Entered (or keep it Entered) and log the latest entry time
+                update_data = {
+                    "status": "Entered",
+                    "in_time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                
+                put_res = requests.put(f"{self.base_url}/Visitor%20Log/{docname}", headers=self.headers, json=update_data)
+                
+                if put_res.status_code == 200:
+                    return {
+                        "success": True, 
+                        "visitor_name": doc["visitor_name"], 
+                        "resident": doc["resident"],
+                        "vehicle": doc.get("vehicle_number", "N/A")
+                    }
+                return {"success": False, "error": f"Database update failed: {put_res.text}"}
+            return {"success": False, "error": "API connection failed."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def is_authorized_guard(self, chat_id: str, platform: str) -> bool:
+        """Checks if a device is authorized to act as a guard on a specific platform."""
+        params = {
+            "filters": json.dumps([
+                ["messenger_id", "=", chat_id],
+                ["platform", "=", platform.capitalize()],
+                ["is_active", "=", 1]
+            ])
+        }
+        
+        # Define the URL explicitly
+        url = f"{self.base_url}/Gate Security Device"
+        res = requests.get(url, headers=self.headers, params=params)
+        
+        # Log the response content to see what ERPNext is actually sending back
+        print(f"DEBUG: Request URL: {url}")
+        print(f"DEBUG: Status Code: {res.status_code}")
+        print(f"DEBUG: Response Text: {res.text}")
+        
+        if res.status_code == 200:
+            return len(res.json().get("data", [])) > 0
+        return False
+
+    def get_resident_chat_id(self, flat_number: str) -> str:
+        """Looks for an active tenant first; falls back to the owner's chat ID."""
+        flat_number = str(flat_number).upper().strip()
+        profile = self.get_resident_profile(flat_number)
+        
+        if profile:
+            # If rented, route to tenant. If not rented, route to owner.
+            if profile.is_rented and profile.tenant_telegram_chat_id:
+                return str(profile.tenant_telegram_chat_id)
+            elif profile.telegram_chat_id:
+                return str(profile.telegram_chat_id)
+                
+        return None
+
+    def create_walkin_visitor(self, resident: str, visitor_name: str, purpose: str = "Guest") -> str:
+        """Creates a Visitor Log pending resident approval."""
+        import random
+        from datetime import datetime
+        
+        # 1. Force strict uppercase for database linking
+        clean_resident = resident.upper().strip()
+        
+        url = f"{self.base_url}/Visitor%20Log"
+        payload = {
+            "resident": clean_resident,
+            "visitor_name": visitor_name,
+            "status": "Pending", 
+            "entry_type": "Walk-in",
+            # 👇 Explicitly defined to override ERPNext defaults 👇
+            "purpose_of_visit": purpose, 
+            "expected_date": datetime.now().strftime("%Y-%m-%d"),
+            "passcode": f"WALKIN_{clean_resident}_{random.randint(1000, 9999)}"
+        }
+        
+        res = requests.post(url, headers=self.headers, json=payload)
+        
+        if res.status_code == 200:
+            return res.json().get("data", {}).get("name")
+        else:
+            print(f"❌ Walk-in Creation Failed: {res.text}")
+            return None
+
+    def update_visitor_status(self, docname: str, status: str) -> bool:
+        """Updates status to Approved or Denied and sets entry timestamps."""
+        url = f"{self.base_url}/Visitor%20Log/{docname}"
+        payload = {"status": status}
+        if status == "Approved":
+            payload["status"] = "Entered"
+            payload["in_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        elif status == "Deny":
+            payload["status"] = "Denied"
+            
+        res = requests.put(url, headers=self.headers, json=payload)
+        return res.status_code == 200
+
+    def get_outstanding_dues(self, flat_number: str) -> float:
+        """Fetches total outstanding balance across unpaid Sales Invoices for the flat."""
+        url = f"{self.base_url}/Sales Invoice"
+        params = {
+            "filters": json.dumps([
+                ["customer", "=", flat_number.strip().upper()],
+                ["docstatus", "=", 1],
+                ["outstanding_amount", ">", 0]
+            ]),
+            "fields": '["outstanding_amount"]'
+        }
+        res = requests.get(url, headers=self.headers, params=params)
+        if res.status_code == 200:
+            return sum(float(inv.get("outstanding_amount", 0)) for inv in res.json().get("data", []))
+        return 0.0
+
+    def get_active_notices(self) -> list:
+        """Fetches the 5 most recent notices from the management committee."""
+        url = f"{self.base_url}/Society Notice"
+        params = {"fields": '["title", "content", "date"]', "order_by": "date desc", "limit_page_length": 5}
+        res = requests.get(url, headers=self.headers, params=params)
+        return res.json().get("data", []) if res.status_code == 200 else []
+
+    def book_facility(self, facility: str, flat: str, date_str: str) -> dict:
+        """Checks if a date is clear; if so, reserves the asset."""
+        url = f"{self.base_url}/Facility Booking"
+        # Check conflicts
+        chk = requests.get(url, headers=self.headers, params={"filters": json.dumps([["facility", "=", facility], ["booking_date", "=", date_str], ["status", "=", "Confirmed"]])})
+        if chk.status_code == 200 and len(chk.json().get("data", [])) > 0:
+            return {"success": False, "error": "This date is already reserved."}
+        
+        payload = {"facility": facility, "resident": flat, "booking_date": date_str, "status": "Confirmed"}
+        res = requests.post(url, headers=self.headers, json=payload)
+        return {"success": res.status_code == 200}

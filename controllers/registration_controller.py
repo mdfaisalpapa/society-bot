@@ -90,3 +90,15 @@ class RegistrationController:
         else:
             self.session.clear_session(chat_id)
             Messenger.send(platform, chat_id, "❌ Registration failed. We couldn't link your account. Please contact the administration.", remove_keyboard=True)
+
+# In RegistrationController or GateController
+    def start_guard_registration(self, platform, chat_id, user_info):
+        """
+        Registers the intent to be a guard and notifies the admin.
+        user_info: the 'from' object from the message.
+        """
+        msg = (f"🛡️ *Guard Registration Request*\n\n"
+               f"Name: {user_info.get('first_name')}\n"
+               f"ID: `{chat_id}`\n\n"
+               "Please provide this ID to the RWA Administrator to activate your gate access.")
+        Messenger.send(platform, chat_id, msg)
