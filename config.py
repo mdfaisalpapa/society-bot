@@ -8,8 +8,9 @@ load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_API_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
 
-# Admin Chat ID
-ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID", "YOUR_PERSONAL_CHAT_ID_HERE")
+# Telegram Group IDs
+OWNERS_GROUP = os.getenv("OWNERS_GROUP_ID")
+RESIDENTS_GROUP = os.getenv("RESIDENTS_GROUP_ID")
 
 # ERPNext Configuration
 FRAPPE_URL = os.getenv("ERPNEXT_URL")

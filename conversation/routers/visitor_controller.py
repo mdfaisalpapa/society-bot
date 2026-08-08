@@ -2,7 +2,6 @@ from services.messenger import Messenger
 from conversation.session import SessionManager
 from api.erp import ERPClient
 from datetime import datetime
-from utils.keyboard import KeyboardBuilder
 import qrcode
 import io
 from utils.logger import app_logger
@@ -18,10 +17,28 @@ class VisitorController:
     # --- INVITATION WIZARD ---
 
     def start_invite(self, platform: str, chat_id: str, resident_flat: str):
-        from utils.keyboard import KeyboardBuilder
+        """Step 1: Ask for name, share contact, or pick quick options."""
         self.session.update_session(chat_id, step="awaiting_name", module="visitor", data={"flat": resident_flat})
+        
+        # Build dynamic grid with Quick Delivery and Frequent Visitors
         freq_visitors = self.erp.get_frequent_visitors(resident_flat)
-        Messenger.send(platform, chat_id, "✉️ *Pre-Approve a Visitor*\n\nEnter Name, share a Contact from your phonebook, or pick an option below:", inline_keyboard=KeyboardBuilder.visitor_invite_grid(freq_visitors))
+        grid = [[{"📦 Quick Delivery (Today)": "/vquick_del"}]]
+        
+        row = []
+        for v in freq_visitors:
+            safe_v = v.replace(" ", "_")[:20] # Ensure safe callback format
+            row.append({f"👤 {v}": f"/vfreq_{safe_v}"})
+            if len(row) == 2:
+                grid.append(row)
+                row = []
+        if row: grid.append(row)
+        grid.append([{"🔙 Main Menu": "/menu"}])
+
+        Messenger.send(
+            platform, chat_id, 
+            "✉️ *Pre-Approve a Visitor*\n\nEnter Name, share a Contact from your phonebook, or pick an option below:", 
+            grid=grid
+        )
 
     def handle_wizard_reply(self, platform: str, chat_id: str, text: str, session_data: dict, current_step: str, contact_data: dict = None):
         """Routes the user's text based on their current step in the wizard."""
@@ -44,32 +61,43 @@ class VisitorController:
             session_data["visitor_name"] = name
             self.session.update_session(chat_id, step="awaiting_purpose", module="visitor", data=session_data)
             
-            Messenger.send(platform, chat_id, f"What is the purpose of *{name}*'s visit?", inline_keyboard=KeyboardBuilder.visitor_purpose_grid())
+            grid = [
+                [{"🤝 Guest": "/vpurp_Guest"}, {"🛠️ Service": "/vpurp_Service"}],
+                [{"🧹 Maid": "/vpurp_Maid"}, {"🚕 Taxi": "/vpurp_Taxi"}],
+                [{"🔙 Main Menu": "/menu"}]
+            ]
+            Messenger.send(platform, chat_id, f"What is the purpose of *{name}*'s visit?", grid=grid)
             return
 
         elif current_step == "awaiting_purpose":
             session_data["purpose"] = text.replace("/vpurp_", "") if text.startswith("/vpurp_") else "Guest"
             self.session.update_session(chat_id, step="awaiting_date", module="visitor", data=session_data)
             
-            Messenger.send(platform, chat_id, "When are they expected to arrive?", inline_keyboard=KeyboardBuilder.visitor_date_grid())
+            grid = [
+                [{"📅 Today": "/vdate_today"}, {"📆 Tomorrow": "/vdate_tomorrow"}],
+                [{"🗓️ Multi-Day Pass": "/vdate_multi"}],
+                [{"🔙 Main Menu": "/menu"}]
+            ]
+            Messenger.send(platform, chat_id, "When are they expected to arrive?", grid=grid)
             return
 
         elif current_step == "awaiting_date":
             date_sel = text.replace("/vdate_", "")
             if date_sel == "multi":
                 self.session.update_session(chat_id, step="awaiting_end_date", module="visitor", data=session_data)
-                Messenger.send(platform, chat_id, "How long will they be staying?", inline_keyboard=KeyboardBuilder.visitor_duration_grid())
+                grid = [[{"+ 3 Days": "/vend_3days"}, {"+ 1 Week": "/vend_1week"}], [{"🔙 Main Menu": "/menu"}]]
+                Messenger.send(platform, chat_id, "How long will they be staying?", grid=grid)
             else:
                 session_data["date"] = date_sel
                 self.session.update_session(chat_id, step="awaiting_vehicle", module="visitor", data=session_data)
-                Messenger.send(platform, chat_id, "🚗 Enter Vehicle Number (or click Skip):", inline_keyboard=KeyboardBuilder.visitor_vehicle_skip_grid())
+                Messenger.send(platform, chat_id, "🚗 Enter Vehicle Number (or click Skip):", grid=[[{"⏭️ Skip": "/vveh_skip"}], [{"🔙 Main Menu": "/menu"}]])
             return
             
         elif current_step == "awaiting_end_date":
             session_data["date"] = "today" 
             session_data["end_date"] = text.replace("/vend_", "")
             self.session.update_session(chat_id, step="awaiting_vehicle", module="visitor", data=session_data)
-            Messenger.send(platform, chat_id, "🚗 Enter Vehicle Number (or click Skip):", inline_keyboard=KeyboardBuilder.visitor_vehicle_skip_grid())
+            Messenger.send(platform, chat_id, "🚗 Enter Vehicle Number (or click Skip):", grid=[[{"⏭️ Skip": "/vveh_skip"}], [{"🔙 Main Menu": "/menu"}]])
             return
 
         elif current_step == "awaiting_vehicle":
@@ -83,7 +111,7 @@ class VisitorController:
         """Centralized method to hit ERPNext, generate a QR code locally, and display the result."""
         import qrcode
         import io
-        final_end_date = end_date if end_date else date_sel
+        
         result = self.erp.create_preapproved_visitor(resident_flat, visitor_name, date_sel, purpose, vehicle, end_date)
         
         if result.get("success"):
@@ -175,9 +203,12 @@ class VisitorController:
         if offset > 0: 
             btns.append({"Next Week ➡️": f"/visitors_{offset - 1}" if offset > 1 else "/history"})
             
-        
+        grid = [
+            btns, 
+            [{"🔙 Main Menu": "/menu"}]
+        ]
             
-        Messenger.send(platform, chat_id, reply, inline_keyboard=KeyboardBuilder.visitor_history_grid(offset))
+        Messenger.send(platform, chat_id, reply, grid=grid)
 
     def process_date_selection(self, platform: str, chat_id: str, selected_date: str, flat_number: str):
         """Saves the date and generates the final Gate Pass."""
@@ -223,8 +254,6 @@ class VisitorController:
             "visitor_name": visitor_name,
             "status": "Approved",
             "expected_date": actual_date,
-            "end_date": actual_date, # 👇 NEW: Force end_date to be same as start_date for single-day
-            "pass_type": "Single",   # 👇 NEW: Explicitly mark as Single pass
             "purpose_of_visit": purpose, 
             "passcode": passcode
         }

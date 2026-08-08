@@ -4,10 +4,13 @@ import cv2
 from pyzbar.pyzbar import decode
 from services.messenger import Messenger
 from api.erp import ERPClient
+from conversation.session import SessionManager # Import this
 
-class GateController:
-    def __init__(self, erp: ERPClient):
+class GuardController:
+    # Ensure it accepts erp AND session
+    def __init__(self, erp: ERPClient, session: SessionManager): 
         self.erp = erp
+        self.session = session
 
     def handle_scan_prompt(self, platform: str, chat_id: str):
         """Instructs the guard how to use the native QR scanner."""
@@ -56,6 +59,15 @@ class GateController:
                                    f"🚗 *Vehicle:* {result.get('vehicle', 'N/A')}\n\n"
                                    f"_Visitor has been automatically logged as 'Entered'._")
                     Messenger.send(platform, chat_id, success_msg)
+                    # 👇 NEW: Notify the Resident 👇
+                    resident_flat = result.get("resident")
+                    resident_chat_id = self.erp.get_resident_chat_id(resident_flat)
+                
+                    if resident_chat_id:
+                        msg_to_resident = (f"🔔 *Visitor Arrival*\n\n"
+                                           f"Your visitor *{result['visitor_name']}* has just arrived at the gate "
+                                           f"and has been granted access.")
+                        Messenger.send(platform, resident_chat_id, msg_to_resident)
                 else:
                     error_msg = f"❌ *ACCESS DENIED*\n\n{result.get('error')}"
                     Messenger.send(platform, chat_id, error_msg)
@@ -64,3 +76,36 @@ class GateController:
             
         except Exception as e:
             Messenger.send(platform, chat_id, f"❌ Error processing image: {str(e)}")
+
+    def process_staff_scan(self, platform: str, guard_chat_id: str, staff_id: str, entry_type: str):
+        """Processes staff entry/exit, checks status, and notifies linked flats."""
+        
+        # 1. Fetch Staff details from ERP
+        staff = self.erp.get_doc("Domestic Staff", staff_id)
+        if not staff:
+            Messenger.send(platform, guard_chat_id, "❌ Invalid Staff ID.")
+            return
+
+        status = staff.get("status")
+        staff_name = staff.get("staff_name")
+        # Ensure 'staff_flat_link' is the correct child table name
+        linked_flats = [row["flat"] for row in staff.get("staff_flat_link", [])]
+
+        # 2. Blacklist Check
+        if status == "Blacklisted":
+            alert_msg = f"🚨 *SECURITY ALERT*\n\n*{staff_name}* (ID: {staff_id}) is *BLACKLISTED*. Entry DENIED."
+            for flat in linked_flats:
+                resident_chat_id = self.session.get_chat_id_by_flat(flat)
+                if resident_chat_id: 
+                    Messenger.send(platform, resident_chat_id, alert_msg)
+            Messenger.send(platform, guard_chat_id, f"🛑 Access Denied: {staff_name} is Blacklisted.")
+            return
+
+        # 3. Handle Active Entry/Exit
+        if status == "Active":
+            msg = f"🟢 *Staff {entry_type}*\n\nYour staff member *{staff_name}* has performed an {entry_type} at the gate."
+            for flat in linked_flats:
+                resident_chat_id = self.session.get_chat_id_by_flat(flat)
+                if resident_chat_id: 
+                    Messenger.send(platform, resident_chat_id, msg)
+            Messenger.send(platform, guard_chat_id, f"✅ {entry_type} logged for {staff_name}.")

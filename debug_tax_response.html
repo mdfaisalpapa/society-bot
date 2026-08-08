@@ -1,0 +1,1473 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>
+
+</title><meta http-equiv="X-UA-Compatible" content="IE=edge" /><meta content="width=device-width, initial-scale=1.0" name="viewport" /><meta name="description" /><meta name="author" /><meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    
+    <!--end NEW from Karthik -->
+    
+
+    <!-- Fonts START -->
+    <link href="assets/global/css/font.css" rel="stylesheet" type="text/css" />
+    <!-- Fonts END -->
+
+    <!-- Global styles START -->
+    <link href="assets/global/plugins/font-awesome/css/font-awesome.min.css" rel="stylesheet" /><link href="assets/global/plugins/bootstrap/css/bootstrap.min.css" rel="stylesheet" /><link href="assets/global/plugins/uniform/css/uniform.default.css" rel="stylesheet" type="text/css" /><link href="assets/global/plugins/bootstrap-switch/css/bootstrap-switch.min.css" rel="stylesheet" type="text/css" />
+    <!-- Global styles END -->
+
+    <!-- Page level plugin styles START -->
+    <link href="assets/global/plugins/fancybox/source/jquery.fancybox.css" rel="stylesheet" />
+    <!-- Page level plugin styles END -->
+    <link rel="stylesheet" type="text/css" href="assets/global/plugins/select2/select2.css" /><link rel="stylesheet" type="text/css" href="assets/global/plugins/datatables/extensions/Scroller/css/dataTables.scroller.min.css" /><link rel="stylesheet" type="text/css" href="assets/global/plugins/datatables/extensions/ColReorder/css/dataTables.colReorder.min.css" /><link rel="stylesheet" type="text/css" href="assets/global/plugins/datatables/plugins/bootstrap/dataTables.bootstrap.css" /><link rel="stylesheet" type="text/css" href="assets/global/plugins/select2/select2.css" />
+    <!-- Theme styles START -->
+
+    <link href="assets/global/css/components.css" rel="stylesheet" /><link href="assets/frontend/layout/css/style.css" rel="stylesheet" /><link href="assets/frontend/layout/css/style-responsive.css" rel="stylesheet" /><link href="assets/frontend/layout/css/themes/green.css" rel="stylesheet" /><link href="assets/frontend/layout/css/custom.css" rel="stylesheet" /><link href="assets/frontend/pages/css/jquery-ui.css" rel="stylesheet" />
+    <script src="/Scripts/jquery-1.10.2.js"></script>
+    
+
+    <link href="assets/global/css/change_password.css" rel="stylesheet" type="text/css" /><link href="assets/global/css/plugins.css" rel="stylesheet" type="text/css" /><link href="assets/admin/layout/css/Test.css" rel="stylesheet" type="text/css" /><link href="assets/admin/layout/css/layout.css" rel="stylesheet" type="text/css" /><link id="style_color" href="assets/admin/layout/css/themes/default.css" rel="stylesheet" type="text/css" /><link rel="stylesheet" href="assets/global/css/icon.css" /><link rel="stylesheet" href="assets/global/css/ie7/ie7.css" />
+
+    <script src="assets/global/plugins/bootstrap-hover-dropdown/bootstrap-hover-dropdown.min.js" type="text/javascript"></script>
+    <script src="assets/global/plugins/bootstrap-switch/js/bootstrap-switch.min.js" type="text/javascript"></script>
+    <script type="text/javascript" src="assets/global/plugins/bootstrap-wizard/jquery.bootstrap.wizard.min.js"></script>
+    <script src="assets/admin/pages/scripts/form-wizard.js"></script>
+
+    <!-- Date Picker -->
+    
+    <!-- Theme styles END -->
+    <!-- Script -->
+
+    
+    <script type="text/javascript">
+        document.onmousedown = disableclick;
+        status = "Right Click is Disabled";
+        function disableclick(event) {
+            if (event.button == 2) {
+                alert(status);
+                return false;
+            }
+        }
+    </script>
+
+    <!--Backspace prevention by Baskar-->
+    <script type="text/javascript">
+        function changeHashOnLoad() {
+            window.location.href += "#";
+            setTimeout("changeHashAgain()", "50");
+        }
+
+        function changeHashAgain() {
+            window.location.href += "1";
+        }
+
+        var storedHash = window.location.hash;
+        window.setInterval(function () {
+            if (window.location.hash != storedHash) {
+                window.location.hash = storedHash;
+            }
+        }, 50);
+
+        function Browser_Close() {
+            alert("success");
+            PageMethods.BrowserCloseMethod();
+        }
+    </script>
+    <style>
+        .margin-top-10 {
+            margin-top: -4% !important;
+            margin-left: 50% !important;
+        }
+
+        .user_info {
+            margin-top: -15% !important;
+        }
+    </style>
+    <!--End Backspace prevention-->
+
+    
+
+    <script type="text/javascript">
+
+        var clicked = false;
+        function CheckBrowser() {
+            if (clicked == false) {
+                //Browser closed   
+            } else {
+                //redirected
+                clicked = false;
+            }
+        }
+        function bodyUnload() {
+
+            if (clicked == false)//browser is closed  
+            {
+                if (window.location.href.indexOf("localhost") > -1) {
+
+                    var urlChunks = location.href;
+                    var urlsplit = location.href.split("/");
+                    var count = 0;
+
+                    if (window.location.href.indexOf("fid") > -1) {
+                        var urlfid = location.href.split("fid");
+
+                        count = urlfid[1].split("/").length - 1;
+                    }
+
+                    if ((urlsplit.length - count > 3) && (urlsplit.length - count <= 4)) {
+
+                        var request = GetRequest();
+                        request.open("POST", "./Test.aspx", false);
+                        request.send();
+                        alert(urlsplit);
+                    }
+                    if ((urlsplit.length - count > 4) && (urlsplit.length - count <= 5)) {
+                        var request = GetRequest();
+                        request.open("POST", "../Test.aspx", false);
+                        request.send();
+                        alert(urlsplit);
+                    }
+
+                    if ((urlsplit.length - count > 5) && (urlsplit.length - count <= 6)) {
+                        var request = GetRequest();
+                        request.open("POST", "../../Test.aspx", false);
+                        request.send();
+                        alert(urlsplit);
+                    }
+                }
+                else if (window.location.href.indexOf("tnurbaneseva.tn.gov.in") > -1) {
+
+                    var urlChunks = location.href;
+                    var urlsplit = location.href.split("/");
+                    var count = 0;
+
+                    if (window.location.href.indexOf("fid") > -1) {
+                        var urlfid = location.href.split("fid");
+
+                        count = urlfid[1].split("/").length - 1;
+                    }
+
+                    if ((urlsplit.length - count > 3) && (urlsplit.length - count <= 4)) {
+
+                        var request = GetRequest();
+                        request.open("POST", "./Test.aspx", false);
+                        request.send();
+                        alert(urlsplit);
+                    }
+                    if ((urlsplit.length - count > 4) && (urlsplit.length - count <= 5)) {
+                        var request = GetRequest();
+                        request.open("POST", "../Test.aspx", false);
+                        request.send();
+                        alert(urlsplit);
+                    }
+
+                    if ((urlsplit.length - count > 5) && (urlsplit.length - count <= 6)) {
+                        var request = GetRequest();
+                        request.open("POST", "../../Test.aspx", false);
+                        request.send();
+                        alert(urlsplit);
+                    }
+                }
+                else {
+
+                    var urlChunks = location.href;
+                    var urlsplit = location.href.split("/");
+                    var count = 0;
+
+                    if (window.location.href.indexOf("fid") > -1) {
+                        var urlfid = location.href.split("fid");
+
+                        count = urlfid[1].split("/").length - 1;
+                    }
+
+                    if ((urlsplit.length - count > 4) && (urlsplit.length - count <= 5)) {
+
+                        var request = GetRequest();
+                        request.open("POST", "./Test.aspx", false);
+                        request.send();
+                        alert(urlsplit);
+                    }
+                    if ((urlsplit.length - count > 5) && (urlsplit.length - count <= 6)) {
+                        var request = GetRequest();
+                        request.open("POST", "../Test.aspx", false);
+                        request.send();
+                        alert(urlsplit);
+                    }
+
+                    if ((urlsplit.length - count > 6) && (urlsplit.length - count <= 7)) {
+                        var request = GetRequest();
+                        request.open("POST", "../../Test.aspx", false);
+                        request.send();
+                        alert(urlsplit);
+                    }
+                }
+            }
+        }
+
+        function GetRequest() {
+            var xmlhttp;
+            if (window.XMLHttpRequest) {// code for IE7+, Firefox, Chrome, Opera, Safari
+                xmlhttp = new XMLHttpRequest();
+            }
+            else {// code for IE6, IE5
+                xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+            }
+            return xmlhttp;
+        }
+    </script>
+
+    
+
+    <script type="text/javascript">
+        function isEnterKey(evt) {
+            var charCode = (evt.which) ? evt.which : event.keyCode
+            if (charCode == 8) {
+                if (window.event.srcElement.type == "text" || window.event.srcElement.type == "textarea") {
+                    return false;
+                }
+                else {
+                    return true;
+                }
+            }
+            else if (charCode == 122) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+    </script>
+    <script type="text/javascript">
+        function ShowpImagePreview(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    $('#ImgPrv').attr('src', e.target.result);
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+    <script language="Javascript" type="text/javascript">
+        function Yuva(fld, evt) {
+            if (isEnterKey(evt)) {
+                event.keyCode = 0;
+                event.returnValue = false;
+                alert("Key Disabled");
+            }
+            else {
+                return true;
+            }
+        }
+        function tamil(event) {
+            event = (event) ? event : window.event;
+            var charCode = (event.which) ? event.which : event.keyCode;
+            var alertmsg = document.getElementById("alert_msg").value;
+            if ((charCode <= 123) && (event.keyCode != 9) && (event.keyCode != 8) && (charCode != 46) && (charCode >= 47) && (charCode >= 58) && (charCode != 44) && (event.which != 32)) {
+                if (alertmsg == "false") {
+                    alert("On scroll lock and then type for Tamil");
+                    var x = document.getElementById("alert_msg");
+                    x.value = "true";
+                    alertmsg = x.value;
+                }
+                return false;
+            }
+        }
+    </script>
+    <style type="text/css">
+        .PnlDesign {
+            border: solid 1px #000000;
+            height: 150px;
+            width: 300px;
+            overflow-y: scroll;
+            background-color: #EAEAEA;
+            font-size: 15px;
+            font-family: Arial;
+        }
+
+        .txtbox {
+            background-image: url(/cmabd/images/drpdwn.png);
+            background-position: right center;
+            background-repeat: no-repeat;
+            cursor: pointer;
+            cursor: hand;
+        }
+    </style>
+    <script type="text/javascript">
+
+        function OnlyAmount(evt) {
+            evt = (evt) ? evt : window.event;
+            var charCode = (evt.which) ? evt.which : evt.keyCode;
+            if (charCode > 31 && (charCode < 48 || charCode > 57) && charCode != 46 && charCode != 37 && charCode != 39) {
+                return false;
+            }
+            return true;
+        }
+        function IsNumber(evt) {
+            var charCode = (evt.which) ? evt.which : event.keyCode;
+            if (charCode > 31 && (charCode < 48 || charCode > 57) && charCode != 8 && charCode != 9 && charCode != 32) {
+                return false;
+            }
+            //charCode != 46
+            return true;
+
+        }
+
+        function IsNumberslash(evt) {
+            var charCode = (evt.which) ? evt.which : event.keyCode;
+            if (charCode > 31 && (charCode < 48 || charCode > 57) && charCode != 8 && charCode != 9 && charCode != 47) {
+                return false;
+            }
+            //charCode != 46
+            return true;
+
+        }
+
+
+
+
+        function IsDecimalBD(evt) {
+            evt = (evt) ? evt : window.event;
+            var charCode = (evt.which) ? evt.which : evt.keyCode;
+            if (charCode > 31 && (charCode < 48 || charCode > 57) && charCode != 46 && charCode != 37 && charCode != 39) {
+                return false;
+            }
+            return true;
+        }
+
+        function IsAllowAlphaInt(evt) {
+            //  PageMethods.SetScrollLockKey(false);
+            evt = (evt) ? evt : window.event;
+            var charCode = (evt.which) ? evt.which : evt.keyCode;
+            if ((charCode < 65 || charCode > 90) && (charCode < 97 || charCode > 122) && (charCode < 48 || charCode > 57) && charCode != 46 && charCode != 37 && charCode != 39 && charCode != 8 && charCode != 9 && charCode != 32) {
+                return false;
+            }
+            //   PageMethods.SetScrollLockKey(false);
+            return true;
+        }
+
+        function IsAllowAlpha(evt) {
+            var charCode = (evt.which) ? evt.which : event.keyCode;
+            if (evt.charCode > 123) {
+                //  window.event.keyCode = 0;
+                alert("Scroll lock is on.First off scroll lock and then type in english");
+                return false;
+            }
+
+            if ((charCode < 65 || charCode > 90) && (charCode < 97 || charCode > 122) && charCode != 8 && charCode != 9 && charCode != 32) {
+                return false;
+            }
+            return true;
+
+        }
+
+
+        function IsAlphaNumeric(evt) {
+            var charCode = (evt.which) ? evt.which : event.keyCode;
+            if (charCode > 31 && (charCode < 48 || charCode > 57) && (charCode < 65 || charCode > 90) && (charCode < 97 || charCode > 122) && charCode != 46 && charCode != 8 && charCode != 9 && charCode != 32 && charCode != 47) {
+                if (charCode == 45 || charCode == 44) return true;
+                return false;
+            }
+            //charCode != 46
+            return true;
+        }
+
+
+        function IsDecimal(eventObj) {
+            var keycode;
+            if (eventObj.keyCode) //For IE
+                keycode = eventObj.keyCode;
+            else if (eventObj.Which)
+                keycode = eventObj.Which;  // For FireFox
+            else
+                keycode = eventObj.charCode; // Other Browser
+
+            if (keycode != 8) //if the key is the backspace key
+            {
+                if (keycode < 46 || keycode > 57 || (keycode == 47) || (keycode == 48)) //if not a number
+                    return false; // disable key press
+                else
+                    return true; // enable key press
+            }
+        }
+
+        function IsEmail(id) {
+            var email = document.getElementById(id);
+            var filter = /^([a-zA-Z0-9_\.\-])+\@(([a-zA-Z0-9\-])+\.)+([a-zA-Z0-9]{2,4})+$/;
+
+            if (!filter.test(email.value)) {
+                document.getElementById(id).focus();
+                $('.fld1-error').html('Invalid email address');
+                $('#PageContent_txtBirthPlaceTypeName').css('border-color', 'red');
+                return false;
+            }
+        }
+
+        function NumericValidation(eventObj) {
+            var keycode;
+            //alert(eventObj.keyCode);
+            if (eventObj.keyCode) //For IE
+                keycode = eventObj.keyCode;
+            else if (eventObj.Which)
+                keycode = eventObj.Which;  // For FireFox
+            else
+                keycode = eventObj.charCode; // Other Browserheader-navigation pull-right font-transform-inherit
+
+            if (keycode != 8) //if the key is the backspace key
+            {
+                if (keycode < 48 || keycode > 57) //if not a number
+                    return false; // disable key press
+                else
+                    return true; // enable key press
+            }
+        }
+
+        function allowOnlyNumber(evt) {
+            evt = (evt) ? evt : window.event;
+            var charCode = (evt.which) ? evt.which : evt.keyCode;
+            if (charCode > 31 && (charCode < 48 || charCode > 57)) {
+                return false;
+            }
+            return true;
+        }
+
+    </script>
+
+    <script type="text/javascript">
+
+        $(function () {
+            var pgurl = window.location.href;
+
+            $(this).addClass("active");
+
+            $("#JAJ ul li").click(function () {
+
+                $(this).addClass("active");
+
+            })
+        });
+
+
+
+    </script>
+
+    <script type="text/javascript">
+        $(function () {
+            $("#Propertylist")
+                .addClass("active");
+        });
+    </script>
+
+
+</head>
+<body class="corporate" oncontextmenu="return false" onload="changeHashOnLoad()" onunload="bodyUnload();" onclick="clicked=true;">
+
+    <form method="post" action="./PT_CPPaymentDetails.aspx" id="form1">
+<div class="aspNetHidden">
+<input type="hidden" name="__EVENTTARGET" id="__EVENTTARGET" value="" />
+<input type="hidden" name="__EVENTARGUMENT" id="__EVENTARGUMENT" value="" />
+<input type="hidden" name="__LASTFOCUS" id="__LASTFOCUS" value="" />
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="2llaR9x54JR9XYQD9/tcOGAq4R8eXLlTJjxSpmOG8HoVljgZRLy2SdQgSYu3R/4OR558sAIFqYjqzWIGcFg+q6lVcPoVbexLhQmmU4bOvl0UYC373IKGaJ0YPzE8KgoC62+UPaDLyv+P41IOnoOpW1KJH9yd9z8YVJ3x3mESmjHnyDmrVIruSA31++zu6+CXPuGHfKWmm2j9wYWvWS57lg0sRD/PibnyZtkbSKXHwu3Pe+WiKpunZSOHrX/oFnbVUusYZdMvISRkA4J1UmcTnp47AIgQFaB5f8/xsmBJp8oFeJOFY8+o3gW0F6TQ/BYtEwoXZDb7O42h9ue9AlLyjJ3JWw8eg2KdHWrFbMewspoxssFGOl1HwivOEK6Qsis2f51+q+3Hbz7MnidMXC4cV6w1yqh2qeAJP2Mqlq34sicsC7avo8PiC27ByMOg2XfcBoJmsZirX3ZkVb1R6rS+oAPN+Z5aRFz/hmcGaiNnoBIMWBTINrtJfa+wcudIBQxT/dfNrA920cfqJU7sz1fA70Dxk/NIAyR0Lsj88JmglYq3y3zLv+DfT0+0wlx5pjN5sYK38ncvmO9+jh7lQm5jsRqVTHOYqoTkiqZQS3/s83epoZRrCWlGkIQabIfNbRMNyxkmWqE8n9CFYd3Y9yWYGCQebe8lnRpry1YyVh9dhFMmpUX3O2A4eenIeAYscDiCWojZ2NC1sNGicgMHs6uIFil6Yc8RLIcRTkh8oH8Xiei3qv4dsh9YmDMM2iwPxdJj5OTGuLQElw2Ycq2KMeRT7+ihKghquMjJKqmHC0+8WgB7f32H2bDykEOPut3FpVTPnf25D9CZdBqD+UpBUvczoghm1+tWOXjBPBuQiFynCJSJmOPjFaYVMAvB4MGaGMtUsAvfobqyqalaAj/e4teiv+IDN9+ZODaiGm7qWfLp7kfq3gOrc/96rVEcymRLPcH9p5X8ppNo+TuSPhST/jKpIXTK1AQgdmg0dmWwlbgP9mRYAzh6OnsvP+QTpCMazyHzUsU0w30jFwvP/xrnyf7GvVGSPOyA+RHTwIbKQ5gh4fI4donJu2gP0k3AOPeQsuxQUgAiXEjGk1GQm4GzO2cwyE9kei1MaaRNc0zFpQjPM6Z9NFJKc/+NbBIJFN72Cz3F8z6IT3TjjI8XCJCgMF1ycDU60k1o0mJa7x0EiWX83MCWgqrfRyQuWBx2xuPxu/RkYgEFOwdgiZiHNf5hYAVmsh0O348HpF6sMwr2ALWUhNj9U/w7gkaqNXOBOPfUQS/WHHqAxhKm+qLd405SVhSngCes0z9xKtVprTYxPLLB2Qa6b60ve06R27ArgMF98PKQUJ8nMCZDgO3TzanAWW8P6XjC6qTzByL9QSIsSJ7OIuecmRwv54uQBsZXCvhBG5LABpJLILjXoxcPk+pHi6gqBdgrF7NiRNXZfmda0J7ixIcCn8MHjaS75xdJQfu2pnkqNMbyuWWDmFJFSPNKqeAvb1+hAbrvvPNjYbYCj7Qz1IlqJMaxd/9ReTuldmBpNi9lswu8Kw0sCyIX7EmtdHZtmsPvkLk2j6DJFw1JhVu8KpX3PmEZi0qEJuBx7s3+h5hLoH+2jhB0/+qDI9JFd6LoycGG+MjqcCXHS0AG5xgbetZ9e7oe8Zd0YQQpFuA7w2TuNFrmj/FyeetrqXa+sMmwJGmNau3mkOrK3tjxA31WQ2/jUUEy5l1el3K7uOjzGmgt0SFlcHe5HxYJfj0R0iMQDAYCligVwndQz/BcnApLhHDj5eEWQhjzcKglru30DiWOPXt0OhxAWIX5DeHlaQ5tArAOPz5fC3dMLR32KqU1rVueWKx9t7z6NfnUUPtab1ZVXnQAOaQk9LXCc6yIffjgVK2Dqfr1BaEOxgBvEZ6X4yqSDj+agPgbsjZpph/c2q66VeULZH4dnru9olpp/nyw7cTd/CuXMjyouXSc+40N1HHvmOohaY3BaASbZB0X++oS2wtnhwGZJ5in1yRwPleZe/IPHVAj0sB2SW1B/49jxnlK7LDtzPKrXynbbIJOB+uM0Y3EmPzzt21aGwYcamiyCcQ0SeRkA/CIWB9YeEsQZiOckdWWGnD4WjOjLWS2sjnk7GBqMWw3GagepBoHjHNXzHpEwMoy0wkJAsuW99YWKbCDvlYSDI9xetxz5BIU1JpqW2/2pSZJkPcpDz9lPRJc+/YLhLpFpEqf3v3ym3TWx1w83GyflyrGYykGuL0ny23He6XofIMc+4VbyASbA39uEP9Wy/iStptNQRZwl7/KqALRKiwm41Fg/dvkOaXbWRYs1QdtlSI/7G6p/ZphS6wfiVLKPRsK/TehFrl91p4yJfaqNRYbgKwlQTtSWmpNGcXa3zsWkXLIlqKDQ0eH6mTInQphjG4Bs3dgrYe4obtyL3JJ+TWIbhqS3kKO6sIxZkgOL30ec9sa8A1o1XiBcPDggRdScp9nU8ebUJ+cRzPMW9UZVoVYq1T58xBOngo3A3La/DvsYRss/6ghkB+EnIFZ2L/l6WUHP6VIrPaOSkybKH+pwG6/i1gkihQS2rVY1Ni4z7G2SClGKNBNwCpdDyadSv+1VNO9xctIW/0ysiXo9QZBLAUOafobqG2XrMaQfJZ40BrJLdG2kI2iJjR23r+GBt7xKNc9LgHN8Qqhb6PHnWO7MD1Dt04lAk2BViXAOPg3EFJdVtLnfVnIeTZ2evozaYzcnqmw5T5FJyoV24512xcuPP8BXNuGYT3NHDbIbc/xtuIumx0x1pcygIFfdGmSELBAwpzdRh+xIjG011t2cUIbf/s9f7ZKVKfo3wetvNQuV8iYJqMuJzMjyij5tdiemGHpKt2bMptbEwEB7dFbxAneX6PSD0Xjpz7Mp+zo3Ai6bQO6Is8+q2VNtH4veLaMowzNhXndbb20ZdYgXmn4eMKI+rf9g0Aumz40ajtkn1PcoZ4anHuED42Kjxvtr8zSjv1i1AcmcwjwQkCazmC6CD3ZXIaCt8dzd36fRkdexi04sdKSXLCL4cRhMawdDuWTq+cRMWWyNrSBJ9RMN1o3freAdv8n3U+a9qOGEKndBuUgaR4kSjDxujrLi9NXpuCSvgG++8g1gudB2UPuyu2nx9Pob60xscloeos7IiPXu6VqfCOXdGd5YpdCBeB/1a6DclzEE5R8HnCaj+xfRreRMgGOPXq96qjwkMSh+ZEJukkFeiLaimlA0jlig/Lep6arUJUDQN7xPpaefGPwIAksyJQcXlWAP7NAN1DQ4+87VM9t6GXZ8E6i3kgA9aEQf06RNApOJ+VPg59gkB85m9QuPMQa4snde94vEzGvq3EBj/Z5qbnroL9C3jMrbcjtctIP9oXELhvX5bp85CsArtVhl/vi7FRmqcLY9CZq28ZlIwIIR/mUhzw/S8IjdppLzv5FG2CTPA9vSPhTq4w40lz6/Je8v5XGWCh/ksgjHdZB7Ua7m7UJWU748rrV5HbYwLB/sljlDZkZbkvf50b6D7a9xMK23Q4Sq3uTBqN/DeCkJw5vuvcXkZvWHVTQmixnukB5xhW6Zi+jmkoEka8WxdaE+N1OPsUGto7HFYlyhilIcFojDATgw3ANVWhB59HtacvLIA/hFVOz++zgpn/eYUrP0QwE5B4XuSXYplY64j9D/e4NeJT+fRrDAZB5QgNFOdS5pc5CXkrPUFVy0dTEd8vbQFYOlri7tcDuME0uvUFlbY/0SWuQbxgQ82oN9Ysmzt7dCICY3xZxS6u9zx6ZR4Gz8B0/P76llbhQz+FwOAgPuG7u6h6KmIOdprEDR80Yjcnv36NrnE4PLa5yxOTxZCH7WoTUydEUnwp/kJrIDLM1uRlL8bePsifmf02S8B6VcMwL1PN3xFbxKY+ecX2YuS/TjLArYVu2mFjxhVQK+Ey7CwPhTTiDpNtP4Nxj0VLzwLDEwVyqV43gV3DxFQUt31tk+s5lRKqpj/G7JIfXIQagG+CLdsB5ya7JapDyxwoehe8Bf+9UOjoWgRMEv2kqkCa7Knb/+neIuKeA21heFOhRsC55hVJGf1HtbL/6jxdrhI0eyvrE3nmcfL2P4f7PpnZTL8kuokBh/buJ4Ei9O3qGwgTbWuflmWmp3NJYeWLgs70rKSZbx5Qif406+QHjwVlyPv6r6P3GAAYXobw7hCr+Oz9SmXhaiGUqs/m1cq5mth1fXe5bbXninD3KwXbl5P1bWnQtpR9fUtdtw4bydDXg2pHLKGTEVwBqVAtUz86g91WKsId8b9KIKD8IzuwCO8pURtq898HjYmFEcBE8R1N2XhSrGEYS6c6+nc6vK4MnQYXUvcvh9YXxNAymjqEKXXZ02c5pKXr4roW/AOZwrGStZd2CaanIzSwqrPJz/WLdDCeTg6AM++NJ58Znn6Cqo323HEwaVXYT92rFQFLa605u1DOEjvHvarf8GHAui8a3Mlv0MIOdvV6k35z/ALZBLfbM8a3iOOImLVzoTgIZMZ1Y0plSIDYvg4wvLcrT2rPS4YrpOCc26szKw0ovrdOHxhssi4qinn1pMrhCQMJadT3bNPRtpVAznBvHKPL9/ZK+OS3NONxrtYICK7TFo0MVosWm9u89vhP4enk3YPXdKpByfbWOYLHh/8Vds+tj6y1yAG00rZ564Wm9+6wWBghnCoOLfxnKop0iI8DpYTCBp4HL+dB3WqfPKbYel1RhN2vHgxzWPQiwIzRn675k70klgf+TgWAe2ISQ1H+ti0zEKWL/a9bhHL4QCNAZ+OBX8qz8rrFRS9v3OtC2DC29FzOLuB8iaPruHD5UOgQrTUjJugVSwCZ/Gq6LJkfCbK7ma8XiaxOj51lQkiewHEvA3aJLwpdmSIfoFCzMe/WnlxpJAEwrNWYB7FHtmOrWn5LQWrroh0+2nKYYLrYXWE6TJ2ln0nFb3oWyeV0LpnWiIKZzX2De6leGYLiJy4PU3BFj74Sc90vF3yn/v1zSIlBCrEahKP+33ys7Kh3sJAlpGqBRGfAPc1BBNvpJP+p+qomlNaiowpe15BAZkir6wkDemh4AS3ofB6+BADFhboNm1pMgtpYpPBPb5GB25ZfFXkKDOOHI70edmYAsMDqZnwN/56e6UZniT7v3gq6mvz1ytvlDv3jdimVSJh5d1v7HYnHhrNgAK+UWhx/oKsA/NqrFnVTLGD/9glU4AEi9ZR8wee/O+eednFztYGWVY2KSoL9WIDAm/3PdecrOAgXzI65auQdvBscpT41i3z/hV1ay3tZSfWk3wzBdNtsAOYl94u8SQLuRlTt5vNPmsV0NsqMKCiDgY+356Z5Cww1Y3wWkyaA8+cIxSx7/QeJa1cB2WPPT/bF3O0BDFbRHA46r3rG3Qhh4gRb80bdadb1ECjD2ev7oGp6va/07Q32aBFBaKOwuYNl/fXs8bw+Uy+LHNiXhHcvr+1RY+tdQ3HcfIYRmse16Hib5okWi8v7G9O22lhzKHqHSSVAY/8J9u84TTZ0xf+Q55y0/NyL7kyGrRNyGOCa3dXoejAh8VD47/GukGHG45VJ6ejPw+JD8iIePZXrsbzXFbVMbz8CdBXQKNhOFoIKITcI/JftCE8p/lHRMSHuh6XV8twhBsaYt3Tt+8HIfl+BQqttkYdgtAAgWUQ2z3VWbgZSujzofIRkWVlk9qmkZbvZCVOt+m3R7iDDrleNiJxVWw23TuWrYtc2eSOWC6HxsVKVjiN5lQ5fRD1bBOPg5JkMwa/Do+qtox6oplECBk7Z8GXpcYgRQuqQWHJm+yZ7pQlTon0CJNQ1ngP3InTFRGjBN8dC9DH8E2sNtM9tqBCaaYqqIv7F0vFySFevl8HEk0MAN69DYARZ+FZrVZ0FgrBAw1k7vPhh5Yu/TXlCokXSisroi46CoRCt6hzanxuOehD4CYugXl8rIbch4t4OZoEThWEca+gOFqs4fRSBvOvoR2ZP6enkHYvXgQEPtg+6J2Tkka3UZXpfvzwEUrd7qYrpBy8ggd3oksmbV1rlp4PsKYue20ys/w8HnnancV1I7mRufsSyb9kN8UW3snab0YZFyU2J+p+Yflg0xGg7367Aa2B2CPi00BV/WjJ6yAJXXn6N6a1zMhxK+B3UIi0vF/rIeZXnO1wfgGwDSgn2LCX6eQ6jblCAJfWHY81SKEnzVJa5pIF8cb7YKx/yAsX5EujjdRpmJ43Ce4axqCX+dM31TmAlPDkm1glXob0bKlP0FuB+aaO0qV70UfSFk1MtE3ZHy7t5xyDDJKGeeUCwpKns4Bpid9IG8EGlA+ondL2XxqukDIC+24BCAGtHleNDVE1znbUb9AhCpOIaCIzfU7DW1BYw6Rsgdch3vdCLvazAJbhI+kBAEr+IAsuJyKyD13tmja+f3qu4FrrciaqWXi1WgL9n9j1vItTXqQj+5gwu9oo5zWluhaS8D9B1rYQ9PKwcYizVHZG3GcbTlyULzzKKEKoii/A7aERJF4Kk85s8dUzOOriJ4TLk047wttirwxWcYLIb7vDn7395jx9YJ35tkU4xwWtM9t1J6lkgA1NDcGGnVgEWPLD6Vkisv6wRINBbavXN+RYxpLeYhcDCg+lE5rauOeD9z42MQOz5jPLiaZ3wGuIpc9001pcoy61VOOdvfMmhT/enHNPqwgsZ3WS/Xo52CM/xz5I5epi5k6I58LlrqtdRqW+tb67azbrS3Kv6KwuLpD9GV5sNeSMDjwEWLClq4GPZY1/IwNI/SVmqxMZXCK815sNbCSKQ0NM99BAeWLT2VYLBN2l7EwDaKtYuZvFaTJUNZSAYdPtxNxzmBbGsn/lPlF3DmASSXdzuCZ/X6gIGkaXns1dTnYNtXU15vC8aXfGdIjL9zlwc8FG0W/w0Jx1bxM8MO6Y/vr+dI7eGmLb6xReD3ZZe8h8OJl8pB3Ym+maVxwM6TgZ08YFA7bFFehEGuV7lDs90kZaOs8iu7sifm7SrnYPiA9q/NVAI6OnrDJp35ONXHNrHjRueOuNpt+o/yuD12pN7JeUfD2oe1DmL60TROvpNkL9MLkbwPynwTV1+PUyxiiFZtQ9rqetyENrXTn3LunNZ41L0VdgyhUbrrUz9TKPPoqzh8WT2aWNlBa4u2CDcqcxAbRm4R/5f+IqP1Nl2IstbZZR+AnXlQQw0qAmtDVt42aHyJ0fDtCnaLef/jRnJwA/15PbTU3C5l43tT9oTn6CYULp7MqkysXF7h+zETPCeNkzNIV3mqbciDXYOjoJksM/koHnEtjgWQ2Et+BwCMF2fvZX2PHTspFu//NXamF0kk3Q5/bM1SBRIgi6+2aT7Dac1DGnAywbDvdEGPLL22lE8hVHphIdR0Pf8F/yLhSUEiztkeZyqIb5cLxOxFr0fNJzdGrQ4iEOHD1fQX3AueNUc4wxtMjrNzqaqT+kCy8FnuoeBi7M7OtXjY7n0dPKZxfMLlSY1QmnAXQomyjjD00E30UMZQhki0Od4xazu9qEfAgga4jL9qIimu60KJmQKDqZxjBWSzKnKjBpIjjqK9edtBxBlqfeCF8wmckZS+yb0w+dhdb+K7nFGp74/OdhtjwJeyZ2vspLvSrWvCH5O8YUZsMxdNZuma2kJFAK7lHJzckgW2fhnzmX0xx2ZWHlqBL8+dl5mvOFhY+04Nt2yXTZvyxZKhgOXcZDTeEjw2/wugsYGdo6UfbsKd0FvDXw+GtSwoUy7JmyIgX6ZO9P6nM+Rv8+PCJVxRCa7eT1z/vyq3F857jnddEGBQqbJL5Sr83mvkEP4LIaASDM0Y2j0QN3QICkflJsDDz+RZHmErOfLCO35/2B5LZue9huwzrbabLrwjs3VxOsA9gMD/NeEfBF2TNuFdSptMBKqz8rVRMChSEzE1+cbkAbPkXsP0YJ9znKS9Bqt+twjus2ByAm8NXiVACJiHp4yadfM1vakpUWt5J7SceMSsRCgWUYzDNN6V8+X8TJCjFmcoXhvcXGeZyS0mI3PzNt8mWJaScewik0Ru2PW/Q3tLuM8DHCC/NSrJqsjPrud8sVVdvG48kzi4sv9oORbVOILl2QXNoq90qWKLuVdfRVFSB6F09ndBjIA+I36OFtL+HS7JEaQJTCZeiGNQbEcRFhwAsin8WNCSJgCRFNyb5p7fLBy0SiSdDcAp" />
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var theForm = document.forms['form1'];
+if (!theForm) {
+    theForm = document.form1;
+}
+function __doPostBack(eventTarget, eventArgument) {
+    if (!theForm.onsubmit || (theForm.onsubmit() != false)) {
+        theForm.__EVENTTARGET.value = eventTarget;
+        theForm.__EVENTARGUMENT.value = eventArgument;
+        theForm.submit();
+    }
+}
+//]]>
+</script>
+
+
+<script src="/WebResource.axd?d=zQoiTf-a8dSjZDmxKIl0UM41B5v0EM7-DrQgBMD5yZmynAAXItYgQNGgEx03DCllzJomGJ3lqzngFeeHhOyO7_qFb541&amp;t=637454266939909757" type="text/javascript"></script>
+
+
+<script src="/ScriptResource.axd?d=xN_JgtuaV4_T_1hpnSsZBdeFfUmsbXduQEZc4wc9C55_3ydIKC25D0KMzq_5UdiHCmbpwu0kNfC0GC8oryWY7qGD2khqu7UYF5HGaqfG4-7tWFp5btQDm68NJhkAWOMkHg6Wx_bCvk-u2mBg3NDjZwiHzzc1&amp;t=2fe674eb" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=jy8Ol3fYRMyB7rzYmApqkJkLVEOoENRhHGLVq210XIYY4hBECles0_SC6LWr_rM0LNBElubyAuxviPS7mRylHdzW3YycMgmdW7ePraWYPlb85wzbvuuEPll1C4gkQ-GrljUjsCwRec4yvajs6pUP8L1_R0JXGQ5birrQItnS2QzWh05A0&amp;t=2fe674eb" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=P0Z5i3Ufl2wNqr8OK2Qz6sUYWGddi0N73OkIU0MjUM8meVC3sCX80Ft5jibJEnpzOyiOq6HXNzbGS7SMtcH9PKtjA7PjJWLyJblxO03EeWAL4QeWkxmrGnDtx6wd-iKHJuKTLPZ8-4OpfcVL-LfVeXjkRl41&amp;t=ffffffffac480b54" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=SkHonFbJzCW0Q8x2cbVeTnMUfIs2bXitxY9Wl8jV4sjlQDtCviBbo2ehHY-ISoushxK4LnZDSg_KEVhKuJqTmKeGDOeAM9JEnxpM-VQRxabFqkoiin7Bkh8wrwCqtr_EeJ2Ke-f9DlO3Y3mCWJ6vOdXUUic1&amp;t=ffffffffac480b54" type="text/javascript"></script>
+<script src="/ScriptResource.axd?d=2hXmPYgSKvRlgz3U37AKm71OzUj3BYPgYlEiTp1ek9ESS3SDv5qE9-y0IuZQgY7gnjAXpjqQ7dBjni4h_tfyzJL-6CqgcWTBoix6grahidGYZQPBpfdI1l6vS0HlvVux2BT7wISa8nQd7nIK42RYP9QMDRtxouLQeqoshxfBD3THk0z-0&amp;t=ffffffffac480b54" type="text/javascript"></script>
+<div class="aspNetHidden">
+
+	<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="A4D7941B" />
+	<input type="hidden" name="__VIEWSTATEENCRYPTED" id="__VIEWSTATEENCRYPTED" value="" />
+	<input type="hidden" name="__EVENTVALIDATION" id="__EVENTVALIDATION" value="mHBXNuPm8xKLEQX+LyBLCfd1IzvAXa9l0RUvwggRcRVGDTGdrwBHXYxcErxWPqtjTq6IM1e+gt5UXWp1JuDHlcf6SQESX4s+ry6xuxcaDMnuJZsH97RqRcyawV4aOZsmPU1TC/KDo/pMlvcAKpOfokGsKWP0MjcJmgLE3VP9kxrXym87QTaqLKU006PVZ56+hJiOV9AZ0o8KY+H+W+DbzIghhBBru7voVgP68TXTCE3KvoAA+Sqxd7EL929DMiACvPx14VedU/6pMBujBVg3swRCuVgeaCgo2m6gfO06+xufIEKY82t4TgUC3WRIsM9QnDGCwfslkRYomJ+Q21FSzjx/mEIkvkvgvC+1A3nT7rd9n/kpbEfEYrkZBG39/6A2XI2CvRKv7ZyV4vfrlKXd2Papu1o7plWGQzTK0pS+Sv6pddtpw23C0jXisqM0lEwIhezb+CURnxxcBd+S0uennQmf1AU=" />
+</div>
+        <input type="hidden" name="ctl00$alert_msg" id="alert_msg" />
+        <div class="color-panel hidden-sm">
+            <div class="color-mode-icons icon-color"></div>
+            <div class="color-mode-icons icon-color-close"></div>
+            <div class="color-mode">
+                <p>THEME COLOR</p>
+                <ul class="inline">
+                    <li class="color-green current color-default" data-style="green"></li>
+                    <li class="color-blue" data-style="blue"></li>
+                    <li class="color-red" data-style="red"></li>
+                    <li class="color-orange" data-style="orange"></li>
+                    <li class="color-gray" data-style="gray"></li>
+                    <li class="color-turquoise" data-style="turquoise"></li>
+                </ul>
+            </div>
+        </div>
+        <div class="header">
+            <div class="container-fluid">
+
+                <div id="divlog" class="site-logo">
+                    <img src="./img/logo/logo-alt.png" alt="CMA">
+                    <div>
+                        <p class="logotitle">Commissionerate of Municipal Administration</p>
+                        <span class="greenheading logotitle">நகராட்சி நிர்வாக ஆணையரகம்
+                        </span>
+                        <span class="greenheading">Enabling ULBs for better services</span>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-12 text-center ">
+                    
+                         <h3 style="color: #41505F;padding-top:25px;">Citizen Web Portal</h3>
+               </div>
+                <div class="col-md-8 col-sm-12  pull-right">
+                    
+
+                </div>
+
+
+
+                <a href="javascript:void(0);" class="mobi-toggler"><i class="fa fa-bars "></i></a>
+
+                <!-- BEGIN NAVIGATION -->
+                <!-- BEGIN TOP BAR LEFT PART -->
+
+
+                <div class="col-md-12 additional-nav rightfloat" style="margin:0; padding:0"  >
+                    
+                    
+
+                </div>
+                <!-- END NAVIGATION -->
+            </div>
+
+        </div>
+        <div style="clear: both"></div>
+        <!-- Header END -->
+        <div class="main">
+            <div class="container-fluid">
+                <!-- BEGIN SIDEBAR & CONTENT -->
+                <div class="row">
+                    <!-- BEGIN CONTENT -->
+                    <div class="col-md-12 col-sm-12">
+
+                        <div>
+                            <div class="row">
+                                <!-- BEGIN LEFT SIDEBAR -->
+
+
+                                
+
+                                <script type="text/javascript">
+//<![CDATA[
+Sys.WebForms.PageRequestManager._initialize('ctl00$ctl31', 'form1', ['tctl00$PageContent$UpdatePanel1','PageContent_UpdatePanel1'], [], [], 90, 'ctl00');
+//]]>
+</script>
+
+
+
+                                
+
+    <div id="PageContent_WSmkpaymnet" class="col-md-2 col-sm-3 blog-sidebar">
+        <!-- CATEGORIES START -->
+        <h4 class="no-top-space"><span class="blueheading">Make Payment</span></h4>
+        <ul class="nav sidebar-categories margin-bottom-40">
+            <li class="active"><a href="PT_CPPaymentDetails.aspx">Property Tax</a></li>
+            <li><a href="WS_PaymentDetails.aspx">Water Supply</a></li>
+            <li><a href="UGD_PaymentDetails.aspx">Under Ground Drainage</a></li>
+            <li><a href="CP_ProfTaxPaymentDetails.aspx">Professional Tax</a></li>
+            <li><a href="NonTax_RentalCollection1.aspx">Non Tax</a></li>
+            <li id="PageContent_lsmkmypayemtn" style="display: none"><a href="MyPayment.aspx">My Payment</a></li>
+        </ul>
+        <!-- CATEGORIES END -->
+
+    </div>
+    
+
+    
+     <style>
+
+
+        .blink {
+            color: red;
+            
+            
+        }
+
+        @keyframes blinker {
+            50% {
+                opacity: 0;
+            }
+        }
+
+        .blink-one {
+            animation: blinker-one 2s linear infinite;
+        }
+        </style>
+
+    
+
+   <style type="text/css">
+.bold
+{
+    font-weight:bold !important;
+}
+</style>
+
+
+  <script type="text/javascript" src="http://code.jquery.com/jquery-1.8.2.js"></script>
+    <script type="text/javascript">
+            $(function() {
+            blinkeffect('#txtblnk');
+            })
+            function blinkeffect(selector) {
+            $(selector).fadeOut('slow', function() {
+            $(this).fadeIn('slow', function() {
+            blinkeffect(this);
+            });
+            });
+            }
+    </script>
+    <input type="submit" name="ctl00$PageContent$btnPTmakepayment" value="" id="PageContent_btnPTmakepayment" style="color:White;background-color:White;border-color:White;border-style:None;height:0px;width:0px;" />
+   
+            <div class="col-md-10 col-sm-9">
+
+                <div>
+                    <div class="col-md-12 col-sm-8">
+
+                        <div class="portlet">
+                            <div class="portlet">
+                                <div class="content-header">
+                                   <span class="blueheading">Make Payment</span>
+                                </div>
+
+                            </div>
+                            <div class="greenborder1">
+                                <div class="goods-page">
+                                    <div class="goods-data clearfix">
+                                        <div class="table-wrapper-responsive">
+                                            <div class="col-md-12 col-sm-6">
+
+                                                <div class="form-horizontal" role="form">
+
+                                                    <input type="hidden" name="ctl00$PageContent$hdnref" id="PageContent_hdnref" value="11529944" />
+                                                    <input type="hidden" name="ctl00$PageContent$totamt_value" id="PageContent_totamt_value" value="20,394.00" />
+                                                    <input type="hidden" name="ctl00$PageContent$HdPropertyTypeID" id="PageContent_HdPropertyTypeID" value="1" />
+                                                    <div id="PageContent_divconnection" style="display: block">
+
+                                                       <div>
+                                                        <table id="PageContent_rdbulb">
+	<tr>
+		<td><input id="PageContent_rdbulb_0" type="radio" name="ctl00$PageContent$rdbulb" value="0" checked="checked" /><label for="PageContent_rdbulb_0"><b>Municipality/Corporation</b>       </label></td>
+	</tr>
+</table>
+
+                                                           </div>
+
+
+                                                        
+                                                            <div id="PageContent_divass" class="col-md-4 col-sm-5">
+                                                                <div class="form-group">
+                                                                    <span id="PageContent_Label12" class="col-lg-5">Assessment Number</span>
+                                                                    <div class="col-lg-7">
+                                                                        <input name="ctl00$PageContent$txtRefNumber" type="text" value="012/048/906701" maxlength="20" id="PageContent_txtRefNumber" tabindex="5" title="Enter Assessment No" class="form_control" />
+                                                                        <input type="image" name="ctl00$PageContent$idview" id="PageContent_idview" class="lbltop" title="..." alt="..." src="../img/view.png" src="" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div id="PageContent_divoldass" class="col-lg-4">
+                                                                <div class="form_group">
+                                                                    <span id="PageContent_Label2" class="col-lg-5">Old Assessment Number</span>
+                                                                    <div class="col-lg-7">
+                                                                        <input name="ctl00$PageContent$txt_OldNo" type="text" maxlength="20" onchange="javascript:setTimeout(&#39;__doPostBack(\&#39;ctl00$PageContent$txt_OldNo\&#39;,\&#39;\&#39;)&#39;, 0)" onkeypress="if (WebForm_TextBoxKeyHandler(event) == false) return false;" id="PageContent_txt_OldNo" tabindex="5" title="Enter Old Assessment No" class="form_control" />
+                                                                    </div>
+
+                                                                </div>
+                                                            </div>
+                                                              <div class="col-lg-4">
+                                                                    
+                                                                          </div>
+                                                           
+
+
+                                                                      <div class="container-fluid-full">
+                                                <div class="col-md-12">
+                                                    <div class="col-md-3">
+                                                        </div>
+                                                    <div class="col-md-3">
+                                                        
+                                                            <div id="PageContent_div4">
+                                                                <input type="submit" name="ctl00$PageContent$btnGetDetails" value="Search" id="PageContent_btnGetDetails" class="btn btn-primary" />
+                                                            </div>
+                                                        
+                                                    </div>
+                                                      
+<div class="col-md-3">
+                                                        
+                                                            <div id="PageContent_div7">
+                                                            <input type="submit" name="ctl00$PageContent$btnViewPaymentHis" value="View Payment History" id="PageContent_btnViewPaymentHis" class="btn btn-primary btn-primarynew" />
+                                                                </div>
+                                                       
+                                                    </div>
+
+                                                    <div class="col-md-3">
+                                                       
+                                                            <div id="PageContent_div5">
+                                                                <input type="submit" name="ctl00$PageContent$btnback" value="Back" id="PageContent_btnback" tabindex="40" class="btn btn-primary btn-primarynew" />
+                                                            </div>
+                                                       
+                                                    </div>
+
+                                                    <div class="col-lg-8 blink">
+                                                        As per Ward Delimitation Process Assessment Numbers are revised. Kindly confirm your Name and Assessment Number before making payment.
+                                                        <p>
+                                                            வார்டு மறுவரையறையின் படி வரிவிதிப்பு எண்களில் மாற்றம் செய்யப்பட்டுள்ளது. எனவே, வரி செலுத்தும் முன்பு உங்களுடைய பெயர் மற்றும் வரிவிதிப்பு எண்ணை சரிபார்க்கவும்.
+
+                                                        </p>
+                                                    </div>
+
+
+                                                  
+                                                </div>
+
+                                              
+                                                <div class="col-md-6" style="display: none">
+                                                    <div class="form_field">
+                                                        <span id="PageContent_Label18" class="asplable"></span>
+                                                        <input name="ctl00$PageContent$TextBox1" maxlength="20" id="PageContent_TextBox1" tabindex="2" class="form_input" type="text" />
+
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-md-6">
+                                                    <div class="form_group">
+                                                        <div id="PageContent_div6" style="display: none; margin-left: 50px">
+                                                            <span id="PageContent_Label19">Paid Amount  :</span>
+                                                            <span id="PageContent_Label20" style="font-weight:bold;"></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                                                    
+                                                                    
+                                                                        
+                                                                    
+                                                                
+                                                        
+
+                                                    </div>
+                                                </div>
+
+
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+</br>
+                                
+
+                                <div class="form-wizard">
+                                    
+                                    <!-- Step Content Start-->
+                                    <div class="tab-content1">
+
+                                        
+
+                                        <fieldset id="PageContent_cfc_info1" style="display:block;width:100%;" class="innerfieldset_topborder">
+                                            <legend style="background-color:#4276a4" >Property Tax Last Payment Details</legend>
+                                            
+                                             
+                                            </fieldset>
+
+                                        <fieldset id="PageContent_cfc_info" style="display:block;" class="innerfieldset_topborder">
+                                            <fieldset id="PageContent_Fieldset1" class="innerfieldset_topborder">
+                                                <legend style="background-color:#4276a4" >Property Tax Assessee Details</legend>
+
+                                                <div class="form_block">
+                                                    <div class="col-md-12" style="padding-left: 0px">
+                                                        <div class="col-lg-6">
+
+                                                            <div class="form_group">
+
+                                                                <span id="PageContent_alblAssesmentno" class="col-lg-5">Assessment No </span>
+                                                                <div class="col-lg-7">
+                                                                    <span id="PageContent_alblAssesmentnoText" class="asplable">012/048/906701</span>
+                                                                </div>
+
+                                                            </div>
+
+                                                        </div><div class="col-lg-6">
+
+                                                            <div class="form_group">
+
+                                                                <span id="PageContent_Label4" class="col-lg-5">Old Assessment No </span>
+                                                                <div class="col-lg-7">
+                                                                    <span id="PageContent_alblOldAssesmentnoText" class="asplable"></span>
+                                                                </div>
+
+                                                            </div>
+
+                                                        </div>
+
+
+                                                        <div class="col-lg-6">
+                                                            <div class="form_group">
+                                                                <span id="PageContent_aLabel6" class="asplable">         </span>
+                                                                <span id="PageContent_aLabel7" class="asplable"></span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-lg-6">
+
+                                                        <div class="form_group">
+
+                                                            <span id="PageContent_alabowner" class="col-lg-5">Owner Name:        </span>
+
+                                                            <div class="col-lg-7">
+                                                                <span id="PageContent_alblOwner" class="asplable">KENDRIYA VIHAR PHASE-III CGEWHO  </span>
+                                                            </div>
+
+
+                                                        </div>
+                                                    </div>
+
+
+                                                    <div class="col-lg-6">
+
+
+                                                        <div class="form_group">
+
+                                                            <span id="PageContent_alabownertamil" class="col-lg-5">Owner Name in Tamil:</span>
+                                                            <div class="col-lg-7">
+                                                                <span id="PageContent_alblOwnerintamil" class="asplable"> .KENDRIYA VIHAR PHASE-III CGEWHO  </span>
+                                                            </div>
+
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-lg-6">
+                                                        <span id="PageContent_Label3" class="col-lg-5">Address Details:</span>
+
+                                                        <div class="col-lg-7">
+
+                                                            <span id="PageContent_alblDoorNo" class="asplable">B1 503 KV PHASE III</span>
+                                                            <span id="PageContent_aLabel8" class="asplable"></span>
+                                                            
+                                                            <span id="PageContent_alblStreet1" class="asplable">KENDHIRIAYAR VIHAR POOVAI ROAD</span><br/>
+                                                            <span id="PageContent_aLabel11" class="asplable"></span>
+
+
+
+                                                            <span id="PageContent_alborganization" class="asplable">AVADI </span>
+                                                            <span id="PageContent_aLabel12" class="asplable"></span>
+
+                                                            <span id="PageContent_alblPincode" class="asplable">600071</span>
+                                                        </div>
+
+                                                    </div>
+
+
+                                                    <div class="col-lg-6">
+                                                        <span id="PageContent_Label5" class="col-lg-5">Address Deatils(Tamil):</span>
+
+                                                        <div class="col-lg-7">
+
+                                                            <span id="PageContent_alblDoorNot" class="asplable">B1 503 KV PHASE III</span>
+                                                            
+                                                            <span id="PageContent_aLabel15" class="asplable"></span>
+                                                            <span id="PageContent_alblStreet1ll" class="asplable">கேந்திரவிஹார் பூவை ரோடு</span><br/>
+                                                           <span id="PageContent_aLabel17" class="asplable"></span>
+                                                            
+                                                           
+
+                                                            <span id="PageContent_alborganizationLL" class="asplable">ஆவடி </span>
+                                                            <span id="PageContent_Label17" class="asplable"></span>
+                                                            <span id="PageContent_alblPincodell" class="asplable">600071</span>
+                                                        </div>
+
+                                                    </div>
+
+                                                     <div class="col-lg-6">
+                                                        <div class="form_group">
+                                                            <span id="PageContent_Label14" class="col-lg-5" style="color:darkblue;font-weight:bold">Assesment Type:</span>
+
+                                                            <div class="col-lg-7">
+                                                                <span id="PageContent_lblasstype" class="asplable" style="color:darkblue;font-weight:bold">Building</span>
+                                                            </div>
+
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-lg-6">
+                                                        <div class="form_group">
+                                                            <span id="PageContent_lblZone" class="col-lg-5">Zone:</span>
+
+                                                            <div class="col-lg-7">
+                                                                <span id="PageContent_lblZoneText" class="asplable">AVADI</span>
+                                                            </div>
+
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="col-lg-6">
+                                                        <div class="form_group">
+                                                            <span id="PageContent_Label1" class="col-lg-5">Ward:</span>
+
+                                                            <div class="col-lg-7">
+                                                                <span id="PageContent_lblWardText" class="asplable">WD-48</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="col-md-6">
+                                                        
+                                                    </div>
+
+                                                    
+
+                                                    <div class="col-lg-6">
+                                                        
+                                                    </div>
+
+
+                                                    <div class="col-lg-6">
+                                                        <div class="form_group">
+
+                                                            <span id="PageContent_alblnetannualvalue" class="col-lg-5">Annual Rental Value (₹):</span>
+
+                                                            <span id="PageContent_albl_netannualvalue" class="asplable">34301.00</span>
+
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-lg-6">
+
+                                                        <div class="form_group">
+
+                                                            <span id="PageContent_alblhalfyeartax" class="col-lg-5">Half Yearly Tax (₹):</span>
+                                                            <div class="col-lg-7">
+
+                                                                <span id="PageContent_albl_halfyeartax" class="asplable">4443.00</span>
+                                                            </div>
+
+                                                        </div>
+
+                                                    </div>
+                                                     <div class="col-lg-6">
+
+                                                        <div class="form_group">
+
+                                                            <span id="PageContent_Label11" class="col-lg-5" style="color:darkblue;font-weight:bold">Assessment Status: </span>
+                                                            <div class="col-lg-7">
+
+                                                                <span id="PageContent_lblflag" class="asplable" style="color:darkblue;font-weight:bold">Collectable</span>
+                                                            </div>
+
+                                                        </div>
+
+                                                    </div>
+                                                      <div class="col-lg-6">
+
+                                                        <div class="form_group">
+
+                                                            <span id="PageContent_Label15" class="col-lg-5" style="color:darkblue;font-weight:bold">Usage :</span>
+                                                            <div class="col-lg-7">
+
+                                                                <span id="PageContent_lblusage" class="asplable" style="color:darkblue;font-weight:bold">RESIDENTIAL</span>
+                                                            </div>
+
+                                                        </div>
+
+                                                    </div>
+
+
+                                                    <div class="col-lg-6">
+
+                                                        <div class="form_group">
+
+                                                            <span id="PageContent_Label16" class="col-lg-5" style="color:darkblue;font-weight:bold">Total Area Sqft :</span>
+                                                            <div class="col-lg-7">
+
+                                                                <span id="PageContent_Label21" class="asplable" style="color:darkblue;font-weight:bold">1133.00</span>
+                                                            </div>
+
+                                                        </div>
+
+                                                    </div>
+                                                    <div class="col-lg-6">
+
+                                                        
+                                                    </div>
+
+                                                </div>
+
+
+
+                                            </fieldset>
+
+
+
+
+                                            <fieldset id="PageContent_Payment" class="innerfieldset_topborder" style="display:block;">
+                                                <legend style="background-color:#4276a4" >Property Tax Due Details</legend>
+
+
+
+
+                                                <div style="width: 100%; overflow: auto;">
+
+
+
+                                                    <div>
+	<table class="altrowstable" cellspacing="0" rules="all" orderStyle="solid" border="1" id="PageContent_gvpayment" style="border-collapse:collapse;">
+		<tr class="Gridcolor Gridcolor1">
+			<th align="left" scope="col" style="background-color:#4276A4;">
+                                                                    S.No.
+                                                                </th><th scope="col" style="background-color:#4276A4;">
+                                                                    <span id="PageContent_gvpayment_Label26">Period</span>
+                                                                </th><th scope="col" style="background-color:#4276A4;">
+                                                                    <span id="PageContent_gvpayment_Label26">Tax Demand Amount</span>
+                                                                </th><th scope="col" style="background-color:#4276A4;">
+                                                                    <span id="PageContent_gvpayment_Label26">Penalty Demand Amount</span>
+                                                                </th><th scope="col" style="background-color:#4276A4;">
+                                                                    <span id="PageContent_gvpayment_Label26">Tax Collected Amount</span>
+                                                                </th><th scope="col" style="background-color:#4276A4;">
+                                                                    <span id="PageContent_gvpayment_Label26">Penalty Collected Amount</span>
+                                                                </th><th scope="col" style="background-color:#4276A4;">
+                                                                    <span id="PageContent_gvpayment_Label26">Tax Balance Amount</span>
+                                                                </th><th scope="col" style="background-color:#4276A4;">
+                                                                    <span id="PageContent_gvpayment_Label26">Balance Penalty Amount</span>
+                                                                </th><th scope="col" style="background-color:#4276A4;">
+                                                                    <span id="PageContent_gvpayment_Label26">Total Balance Amount</span>
+                                                                </th><th scope="col" style="background-color:#4276A4;">
+                                                                    <span id="PageContent_gvpayment_lbldelaypenaly">Delay Penalty</span>
+                                                                </th><th scope="col" style="background-color:#4276A4;">
+                                                                    <span id="PageContent_gvpayment_lblincentive">Incentive</span>
+                                                                </th><th scope="col" style="background-color:#4276A4;">
+                                                                    <span id="PageContent_gvpayment_Label26">Cumlative Balance Amount</span>
+                                                                </th>
+		</tr><tr>
+			<td>
+                                                                    1
+                                                                </td><td align="center">
+                                                                    <span id="PageContent_gvpayment_lbl_installdesc_0">2025-2026-I (SUC)</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_demamt_0">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltydemamt_0">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_collamt_0">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltycollect_0">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_balamt_0">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Balpenalty_0">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_total_0">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_delaypenaly_0">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Incentive_0">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lblRunningTotal_0">600.00</span>
+                                                                </td>
+		</tr><tr>
+			<td>
+                                                                    2
+                                                                </td><td align="center">
+                                                                    <span id="PageContent_gvpayment_lbl_installdesc_1">2025-2026-I</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_demamt_1">4443.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltydemamt_1">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_collamt_1">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltycollect_1">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_balamt_1">4443.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Balpenalty_1">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_total_1">4554.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_delaypenaly_1">111</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Incentive_1">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lblRunningTotal_1">5154.00</span>
+                                                                </td>
+		</tr><tr>
+			<td>
+                                                                    3
+                                                                </td><td align="center">
+                                                                    <span id="PageContent_gvpayment_lbl_installdesc_2">2025-2026-II (SUC)</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_demamt_2">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltydemamt_2">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_collamt_2">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltycollect_2">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_balamt_2">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Balpenalty_2">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_total_2">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_delaypenaly_2">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Incentive_2">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lblRunningTotal_2">5754.00</span>
+                                                                </td>
+		</tr><tr>
+			<td>
+                                                                    4
+                                                                </td><td align="center">
+                                                                    <span id="PageContent_gvpayment_lbl_installdesc_3">2025-2026-II</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_demamt_3">4443.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltydemamt_3">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_collamt_3">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltycollect_3">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_balamt_3">4443.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Balpenalty_3">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_total_3">4554.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_delaypenaly_3">111</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Incentive_3">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lblRunningTotal_3">10308.00</span>
+                                                                </td>
+		</tr><tr>
+			<td>
+                                                                    5
+                                                                </td><td align="center">
+                                                                    <span id="PageContent_gvpayment_lbl_installdesc_4">2026-2027-I (SUC)</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_demamt_4">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltydemamt_4">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_collamt_4">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltycollect_4">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_balamt_4">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Balpenalty_4">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_total_4">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_delaypenaly_4">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Incentive_4">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lblRunningTotal_4">10908.00</span>
+                                                                </td>
+		</tr><tr>
+			<td>
+                                                                    6
+                                                                </td><td align="center">
+                                                                    <span id="PageContent_gvpayment_lbl_installdesc_5">2026-2027-I</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_demamt_5">4443.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltydemamt_5">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_collamt_5">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltycollect_5">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_balamt_5">4443.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Balpenalty_5">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_total_5">4443.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_delaypenaly_5">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Incentive_5">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lblRunningTotal_5">15351.00</span>
+                                                                </td>
+		</tr><tr>
+			<td>
+                                                                    7
+                                                                </td><td align="center">
+                                                                    <span id="PageContent_gvpayment_lbl_installdesc_6">2026-2027-II (SUC)</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_demamt_6">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltydemamt_6">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_collamt_6">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltycollect_6">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_balamt_6">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Balpenalty_6">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_total_6">600.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_delaypenaly_6">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Incentive_6">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lblRunningTotal_6">15951.00</span>
+                                                                </td>
+		</tr><tr>
+			<td>
+                                                                    8
+                                                                </td><td align="center">
+                                                                    <span id="PageContent_gvpayment_lbl_installdesc_7">2026-2027-II</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_demamt_7">4443.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltydemamt_7">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_collamt_7">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_penaltycollect_7">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_balamt_7">4443.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Balpenalty_7">0.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_total_7">4443.00</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_delaypenaly_7">0</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lbl_Incentive_7">163</span>
+                                                                </td><td align="right">
+                                                                    <span id="PageContent_gvpayment_lblRunningTotal_7">20231.00</span>
+                                                                </td>
+		</tr><tr style="font-weight:bold;">
+			<td>&nbsp;</td><td align="right">Total</td><td align="right">20172.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">0.00</td><td align="right">20172.00</td><td align="right">0.00</td><td align="right">20394.00</td><td align="right">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+		</tr>
+	</table>
+</div>
+
+
+                                                </div>
+
+                                            </fieldset>
+
+                                            <div class="container-fluid-full">
+                                                <div class="col-md-16">
+                                                    <div class="col-md-3">
+                                                        <div class="form_field">
+                                                            <div id="PageContent_div1" style="text-align: left; display: block; margin-left: 70px">
+                                                                <span id="PageContent_Label70">Balance Amount :</span>
+                                                                <span id="PageContent_lbl_balanceamt_view" style="font-weight:bold;">20231</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <div class="form_field">
+                                                            <div id="PageContent_div2" style="display: block; margin-left: 50px">
+                                                                <span id="PageContent_Label71">Advance Amount :</span>
+                                                                <span id="PageContent_lbl_advanceamt_view" style="font-weight:bold;">0</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="col-md-3">
+                                                        <div class="form_field">
+                                                            <span id="PageContent_lblpayamt_text" style="font-weight:bold;">Payable Amount :</span>
+                                                            <span id="PageContent_lblpayamt" style="font-weight:bold;">20231</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                              
+                                                <div class="col-md-6" style="display: none">
+                                                    <div class="form_field">
+                                                        <span id="PageContent_Label26" class="asplable"></span>
+                                                        <input name="ctl00$PageContent$txt_RemittersName" maxlength="20" id="PageContent_txt_RemittersName" tabindex="2" class="form_input" type="text" />
+
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-md-6">
+                                                    <div class="form_group">
+                                                        <div id="PageContent_div3" style="display: none; margin-left: 50px">
+                                                            <span id="PageContent_Label72">Paid Amount  :</span>
+                                                            <span id="PageContent_lbl_paidamt_view" style="font-weight:bold;"></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                              
+                                            <div id="PageContent_divtotalamt" style="display: none; margin-right: 70px">
+                                                
+                                                <span id="PageContent_lbltotlamt"></span>
+                                            </div>
+
+                                            
+
+                                          
+
+
+                                            <div style="text-align: right; margin-right: 0px; margin-top: 40px;">
+                                                <span id="PageContent_Label13" class="asplable mandatory1">Payment Amount</span>
+                                                <input name="ctl00$PageContent$txtTransactionAmount" type="text" maxlength="20" onchange="javascript:setTimeout(&#39;__doPostBack(\&#39;ctl00$PageContent$txtTransactionAmount\&#39;,\&#39;\&#39;)&#39;, 0)" onkeypress="if (WebForm_TextBoxKeyHandler(event) == false) return false;" id="PageContent_txtTransactionAmount" tabindex="5" title="Enter Connection No" class="form_input" style="height:32px;width:280px;" />
+                                                
+                                            </div>
+                                            
+
+
+                                              <div class="col-md-12">
+                                                    <div class="form_group">
+                                                            <span id="PageContent_Label22" style="font-weight:bold;">Total Amount : </span>
+                                                            <span id="PageContent_Label23" style="font-weight:bold;"></span>
+                                                        </div>
+                                                    </div>
+
+                                                   <div class="col-md-12">
+                                                    <div class="form_group">
+                                                            <span id="PageContent_Label24" style="font-weight:bold;">Incentive Amount I : </span>
+                                                            <span id="PageContent_Label25" style="font-weight:bold;"></span>
+                                                        </div>
+                                                    </div>
+
+                                                   <div class="col-md-12">
+                                                    <div class="form_group">
+                                                            <span id="PageContent_Label27" style="font-weight:bold;">Incentive Amount II : </span>
+                                                            <span id="PageContent_Label28" style="font-weight:bold;"></span>
+                                                        </div>
+                                                    </div>
+
+
+                                                   <div class="col-md-12">
+                                                    <div class="form_group">
+                                                            <span id="PageContent_Label30" style="font-weight:bold;">Payable Amount : </span>
+                                                            <span id="PageContent_Label31" style="font-weight:bold;"></span>
+                                                        </div>
+                                                    </div>
+
+
+
+
+                                            <div style="text-align: right; display: none;">
+                                                <span id="PageContent_Label29">Total Collection Amount : </span>
+                                                <span id="PageContent_lblinsamt"></span>
+                                            </div>
+
+</br>
+                                            
+                                            
+
+                                            <div class="clearfix"></div>
+                                            <div id="PageContent_UpdatePanel1">
+	
+                                                    
+                                                    <div class="col-lg-2 pull-right margin-bottom-10 margin-top-20">
+
+                                                        <input type="submit" name="ctl00$PageContent$btnSubmit" value="Submit" id="PageContent_btnSubmit" class="btn button-submit" style="color:White;background-color:#4276A4;" />
+
+                                                    </div>
+                                                
+</div>
+                                        </fieldset>
+                                    </div>
+                                    <span id="PageContent_lblmsg" class="lbltop"></span>
+                                     <span id="PageContent_lblblink" class="blink"></span>
+                                    
+                                  
+
+
+                                </div>
+
+                            </div>
+
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        
+    <!-- END RIGHT SIDEBAR -->
+
+
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script src="assets/global/plugins/jquery-3.6.1.min.js"></script>
+        
+        <script src="assets/global/plugins/jquery-migrate-1.2.1.min.js" type="text/javascript"></script>
+        <script src="assets/global/plugins/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
+        <script src="assets/frontend/layout/scripts/back-to-top.js" type="text/javascript"></script>
+        <!-- END CORE PLUGINS -->
+
+        <!-- BEGIN PAGE LEVEL JAVASCRIPTS (REQUIRED ONLY FOR CURRENT PAGE) -->
+        <script src="assets/global/plugins/fancybox/source/jquery.fancybox.pack.js" type="text/javascript"></script>
+        <!-- pop up -->
+
+        <script src="assets/frontend/layout/scripts/layout.js" type="text/javascript"></script>
+        <script type="text/javascript">
+            jQuery(document).ready(function () {
+                Layout.init();
+            });
+
+        </script>
+        <script src="assets/global/scripts/jquery-ui.js"></script>
+
+        <script language="Javascript" type="text/javascript">
+            $(document).keydown(function (event) {
+                if (event.keyCode == 123) { // Prevent F12
+                    return false;
+                } else if (event.ctrlKey && event.shiftKey && event.keyCode == 73) { // Prevent Ctrl+Shift+I        
+                    return false;
+                }
+            });
+
+        </script>
+
+
+    
+
+<script type="text/javascript">
+//<![CDATA[
+Sys.Application.add_init(function() {
+    $create(AjaxControlToolkit.FilteredTextBoxBehavior, {"FilterType":3,"ValidChars":"/","id":"PageContent_FilteredTextBoxExtender2"}, null, null, $get("PageContent_txtTransactionAmount"));
+});
+//]]>
+</script>
+</form>
+</body>
+</html>
+

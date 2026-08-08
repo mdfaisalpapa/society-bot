@@ -83,4 +83,38 @@ class Messenger:
         else:
             print(f"❌ Messenger Error: Unknown platform '{platform}'")
 
+
+    @staticmethod
+    def kick_user_from_group(chat_id: str, group_id: str):
+        """Removes a user from a specific group. They can rejoin later if permitted."""
+        import os
+        import requests
+        
+        bot_token = os.getenv("SOCIETY_BOT_TOKEN") or os.getenv("TELEGRAM_BOT_TOKEN")
+        base_url = f"https://api.telegram.org/bot{bot_token}"
+        
+        # 1. Ban them (Removes them from the group)
+        requests.post(f"{base_url}/banChatMember", json={"chat_id": group_id, "user_id": chat_id})
+        
+        # 2. Immediately Unban them (So they aren't blacklisted forever)
+        requests.post(f"{base_url}/unbanChatMember", json={"chat_id": group_id, "user_id": chat_id})
+
+
+
+    @staticmethod
+    def send_ntfy(topic: str, title: str = "Society Bot Alert", message: str = ""):
+        """Sends a push notification to a specific, secure topic."""
+        if not topic:
+            return # Failsafe if the user hasn't opted in
+            
+        try:
+            import requests
+            ntfy_url = f"https://ntfy.sh/{topic}"
+            headers = {"Title": title, "Priority": "high", "Tags": "rotating_light"}
+            
+            requests.post(ntfy_url, data=message.encode('utf-8'), headers=headers, timeout=5)
+        except Exception as e:
+            from utils.logger import app_logger
+            app_logger.error(f"Ntfy Push Failed for topic {topic}: {e}")
+
     

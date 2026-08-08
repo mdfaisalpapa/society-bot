@@ -5,6 +5,7 @@ import datetime  # <-- ADD THIS LINE
 from services.messenger import Messenger
 from api.erp import ERPClient
 from conversation.session import SessionManager
+from utils.keyboard import KeyboardBuilder
 
 def safe_md(text):
     """Escapes underscores to prevent Telegram Markdown crashes."""
@@ -33,14 +34,7 @@ class TenantController:
         if step == "tenant_name":
             data["tenant_name"] = text.strip()
             self.session.update_session(chat_id, step="relationship", module="add_tenant", data=data)
-            inline_keyboard = [
-                [{"text": "🏠 Tenant", "callback_data": "/rel_Tenant"}],
-                [{"text": "👷 Caretaker", "callback_data": "/rel_Caretaker"}],
-                [{"text": "🏢 Company Lease", "callback_data": "/rel_Company Lease"}],
-                [{"text": "🏨 Guest House", "callback_data": "/rel_Guest House"}],
-                [{"text": "❌ Cancel & Exit", "callback_data": "/cancel"}]
-            ]
-            Messenger.send(platform, chat_id, "🏠 *New Tenant Registration*\n\nStep 2 of 6\n\nSelect Relationship:", inline_keyboard=inline_keyboard)
+            Messenger.send(platform, chat_id, "🏠 *New Tenant Registration*\n\nStep 2 of 6\n\nSelect Relationship:", inline_keyboard=KeyboardBuilder.tenant_relationship_grid())
             
         elif step == "relationship":
             if text.startswith("/rel_"):
@@ -92,37 +86,73 @@ class TenantController:
             f"📅 Start Date : {data.get('start_date')}\n"
             f"📅 End Date : {data.get('end_date')}"
         )
-        inline_keyboard = [
-            [{"text": "✅ Confirm", "callback_data": "/confirm_tenant"}],
-            [{"text": "❌ Cancel", "callback_data": "/cancel"}]
-        ]
-        Messenger.send(platform, chat_id, summary, inline_keyboard=inline_keyboard)
+        Messenger.send(platform, chat_id, summary, inline_keyboard=KeyboardBuilder.tenant_confirmation_grid())
 
     def confirm_tenant(self, platform: str, chat_id: str, session_data: dict):
         data = session_data.get("data", {})
         flat_number = data.get("flat")
+        
+        # 1. FETCH OWNER'S ACTIVE FAMILY BEFORE ERPNEXT DEACTIVATES THEM
+        old_family = self.erp.get_family_members(flat_number)
+        
+        # 2. Process the ERPNext update (This triggers the Server Script)
         success = self.erp.create_active_tenant(flat_number, data)
         self.session.clear_session(chat_id)
         
         if success:
+            from services.messenger import Messenger
+            
+            # ⚠️ Replace with your actual Residents Group ID
+            RESIDENTS_GROUP = "-1002222222222" 
+            
             Messenger.send(platform, chat_id, "✅ Tenant added successfully! The tenant can now use the bot and type `/register` to verify their identity.")
             
-            # 👇 Fetch the freshly created profile and display the dashboard
+            # 3. KICK THE OWNER FROM THE RESIDENTS GROUP
+            Messenger.kick_user_from_group(chat_id, RESIDENTS_GROUP)
+            Messenger.send(platform, chat_id, "ℹ️ *Privacy Notice:* As your flat is now rented, you have been automatically removed from the Community Residents Group. You remain in the Owners Group.")
+            
+            # 4. KICK THE OWNER'S FAMILY FROM THE RESIDENTS GROUP
+            for member in old_family:
+                fam_chat_id = member.get("telegram_chat_id")
+                if fam_chat_id:
+                    Messenger.kick_user_from_group(str(fam_chat_id), RESIDENTS_GROUP)
+                    Messenger.send("telegram", str(fam_chat_id), "👋 Your flat has been rented out. You have been removed from the community groups.")
+            
+            # 5. Refresh profile and show the updated dashboard
             updated_profile = self.erp.get_resident_profile(flat_number)
             self.show_management_menu(platform, chat_id, updated_profile)
         else:
             Messenger.send(platform, chat_id, "❌ Failed to create tenant in ERPNext. Please try again.")
-
     def show_management_menu(self, platform: str, chat_id: str, profile):
+        # 🛡️ STRICT SECURITY BOUNCER
+        if getattr(profile, 'role', '') != "Owner":
+            Messenger.send(platform, chat_id, "⛔ *Access Denied*\n\nOnly Flat Owners are authorized to manage Tenant details.")
+            return
+
         if profile.is_rented:
-            # 👇 Correctly referencing the boolean status from your ERPNext field 👇
-            telegram_status = "✅ Registered" if profile.is_telegram_registered else "⏳ Pending Registration"
+            # 👇 CHANGED: We now check the actual chat ID instead of the deleted boolean
+            is_bot_linked = bool(profile.tenant_telegram_chat_id)
+            telegram_status = "✅ Registered" if is_bot_linked else "⏳ Pending Registration"
             
             remarks_text = f"\n💬 *Remarks:* {profile.tenant_remarks}" if profile.tenant_remarks else ""
             
             def safe_md(value):
                 return str(value) if value else "N/A"
+                
+            # 👇 1. FETCH AND FORMAT THE OCCUPANTS LIST 👇
+            occupants = self.erp.get_family_members(profile.flat_number)
+            occupants_text = ""
             
+            if occupants:
+                occupants_text = "\n\n👨‍👩‍👧‍👦 *Registered Occupants (Family):*\n"
+                for occ in occupants:
+                    occ_name = safe_md(occ.get('member_name'))
+                    occ_rel = safe_md(occ.get('relationship'))
+                    # We hide the phone number here to protect the tenant's family privacy, 
+                    # but you can add it if your society rules require it!
+                    occupants_text += f"• {occ_name} ({occ_rel})\n"
+
+            # 👇 2. APPEND IT TO THE REPLY MESSAGE 👇
             reply = (
                 "🏠 *Tenant Management*\n\n"
                 f"🆔 *Tenant ID:* {safe_md(profile.tenant_id)}\n"
@@ -134,8 +164,9 @@ class TenantController:
                 f"📅 *Start Date:* {safe_md(profile.tenant_start_date)}\n"
                 f"📅 *End Date:* {safe_md(profile.tenant_end_date)}\n"
                 f"🔒 *Doc Status:* {safe_md(profile.tenant_status)}{remarks_text}"
+                f"{occupants_text}" # <--- The occupants list injected here!
             )
-            # ... (rest of keyboard logic remains the same)
+            
             inline_keyboard = [
                 # Row 1: Contact Edits
                 [{"text": "📱 Edit Phone", "callback_data": "/edit_tenant_phone"}, {"text": "✉️ Edit Email", "callback_data": "/edit_tenant_email"}],
@@ -152,15 +183,11 @@ class TenantController:
         else:
             reply = "🏠 *Tenant Management*\n\nNo active tenant found."
             inline_keyboard = [
-                # Row 1: Primary Action
                 [{"text": "➕ Add New Tenant", "callback_data": "/add_tenant"}],
-                
-                # Row 2: History actions
                 [{"text": "🔄 Reactivate", "callback_data": "/reactivate_tenant"}, {"text": "📜 Previous", "callback_data": "/previous_tenants"}],
-                
-                # Row 3: Navigation
                 [{"text": "🔙 Back to Main Menu", "callback_data": "/menu"}]
             ]
+            
         Messenger.send(platform, chat_id, reply, inline_keyboard=inline_keyboard)
     def show_previous_tenants(self, platform: str, chat_id: str, flat_number: str):
         past_tenants = self.erp.get_previous_tenants(flat_number)
@@ -215,20 +242,32 @@ class TenantController:
 
     def confirm_deactivation(self, platform: str, chat_id: str):
         reply = "⚠️ *Warning*\n\nAre you sure you want to deactivate the current tenant? They will lose access to the bot immediately."
-        inline_keyboard = [
-            [{"text": "✅ Yes, Deactivate", "callback_data": "/confirm_deactivate_tenant"}],
-            [{"text": "🔙 Cancel", "callback_data": "/tenant"}]
-        ]
-        Messenger.send(platform, chat_id, reply, inline_keyboard=inline_keyboard)
+        Messenger.send(platform, chat_id, reply, inline_keyboard=KeyboardBuilder.tenant_deactivate_confirm_grid())
 
     def process_deactivation(self, platform: str, chat_id: str, flat_number: str):
+        # 👇 1. FETCH TENANT & FAMILY BEFORE ERPNEXT DEACTIVATES THEM
+        profile = self.erp.get_resident_profile(flat_number)
+        tenant_chat_id = profile.tenant_telegram_chat_id if profile else None
+        tenant_family = self.erp.get_family_members(flat_number)
+        
         success = self.erp.deactivate_tenant(flat_number)
+        
         if success:
-            Messenger.send(platform, chat_id, "✅ Tenant successfully deactivated. The flat is now marked as self-occupied.")
-            inline_keyboard = [[{"text": "➕ Add Tenant", "callback_data": "/add_tenant"}]]
-            Messenger.send(platform, chat_id, "🏠 *Tenant Management*\n\nNo active tenant found.", inline_keyboard=inline_keyboard)
-        else:
-            Messenger.send(platform, chat_id, "❌ Failed to deactivate tenant. Please contact administration.")
+                      
+            # 👇 2. KICK TENANT
+            if tenant_chat_id:
+                Messenger.kick_user_from_group(str(tenant_chat_id), RESIDENTS_GROUP)
+                Messenger.send("telegram", str(tenant_chat_id), "👋 Your tenancy has ended. You have been logged out and removed from the society groups.")
+                
+            # 👇 3. KICK TENANT'S FAMILY
+            for member in tenant_family:
+                fam_chat_id = member.get("telegram_chat_id")
+                if fam_chat_id:
+                    Messenger.kick_user_from_group(str(fam_chat_id), RESIDENTS_GROUP)
+                    Messenger.send("telegram", str(fam_chat_id), "👋 The tenancy has ended. You have been removed from the society groups.")
+                
+            Messenger.send(platform, chat_id, "✅ Tenant and their family successfully deactivated. The flat is now marked as self-occupied.\n\n🚪 You can now rejoin the Community Residents Group via the Main Menu.")
+
     def show_documents_menu(self, platform: str, chat_id: str, flat_number: str):
         """Displays a dynamic checklist of documents with strict verification locks."""
         profile = self.erp.get_resident_profile(flat_number)
@@ -243,7 +282,7 @@ class TenantController:
         tenant_id = profile.tenant_id
 
         # Assume standard ERPNext statuses like Verified/Approved/Registered lock the file
-        is_verified = profile.tenant_status in ["Registered", "Verified", "Approved", "Active"]
+        is_verified = (profile.tenant_status == "Verified")
 
         existing_files = self.erp.get_attachments("Tenants", tenant_id)
         existing_files.sort(key=lambda x: x.get("file_name", ""), reverse=True)
