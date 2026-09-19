@@ -183,6 +183,20 @@ class ERPClient(BaseERPClient):
             return {}
 
 
+    def create_document(self, doctype: str, data: dict) -> dict:
+        """Generic method to create a new record in any ERPNext DocType."""
+        import requests
+        url = f"{self.base_url}/{doctype}"
+        try:
+            response = requests.post(url, headers=self.headers, json=data)
+            if response.status_code == 200:
+                return response.json().get("data", {})
+            else:
+                from utils.logger import app_logger
+                app_logger.error(f"Failed to create {doctype}: {response.text}")
+                return {}
+        except Exception as e:
+            return {}
     def update_document(self, doctype: str, docname: str, data: dict) -> bool:
         """Generic method to update fields in any ERPNext DocType."""
         import requests

@@ -5,7 +5,7 @@ from services.telegram import TelegramService
 from services.messenger import Messenger
 from conversation.session import SessionManager
 from api.erp import ERPClient
-from api.admin_api import AdminService
+#from api.admin_api import AdminService
 
 # Controllers
 from controllers.profile_controller import ProfileController
@@ -39,7 +39,7 @@ class ConversationEngine:
     def __init__(self):
         self.session_manager = SessionManager()
         self.erp_client = ERPClient()
-        self.admin_api = AdminService(self.erp_client)
+        #self.admin_api = AdminService(self.erp_client)
         
         # Initialize Controllers
         self.profile_controller = ProfileController(self.erp_client, self.session_manager)
@@ -53,7 +53,8 @@ class ConversationEngine:
         self.staff_controller = StaffController(self.erp_client, self.session_manager)
         self.family_controller = FamilyController(self.erp_client, self.session_manager)
         self.work_permit_controller = WorkPermitController(self.erp_client, self.session_manager)
-        self.admin_controller = AdminController(self.admin_api, self.session_manager)
+        #self.admin_controller = AdminController(self.admin_api, self.session_manager)
+        self.admin_controller = AdminController(self.erp_client, self.session_manager)
         self.vehicle_controller = VehicleController(self.erp_client, self.session_manager) # NEW
 
         

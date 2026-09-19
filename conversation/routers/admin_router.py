@@ -8,7 +8,9 @@ class AdminRouter:
         role = getattr(active_profile, 'role', '')
         
         # ? FIX: Added .base_client right after .erp
-        staff_role = self.controller.erp.base_client.get_staff_role(chat_id)
+        #staff_role = self.controller.erp.base_client.get_staff_role(chat_id)
+        # ✅ FIX: Call the method directly on the ERPClient
+        staff_role = self.controller.erp.get_staff_role(chat_id)
         
         if role not in ["Office Admin", "Estate Manager", "Doc Verifier"] and staff_role not in ["Office Admin", "Estate Manager", "Doc Verifier"]:
             return False
@@ -92,6 +94,10 @@ class AdminRouter:
         # Step 1 - Open Status Filters
         if text == "/admin_tickets":
             self.controller.show_ticket_status_filters(platform, chat_id)
+            return True
+        # 👇 NEW: Intercept PDF Download Request
+        if text == "/adm_tkt_pdf":
+            self.controller.download_open_tickets_report(platform, chat_id)
             return True
             
         # Step 2 - Open Category Filters (Extracts the selected status)

@@ -93,8 +93,14 @@ class KeyboardBuilder:
 
     @staticmethod
     def admin_ticket_status_grid() -> list:
+        # Fetch the options dynamically as you were doing before
         options = KeyboardBuilder._fetch_options("Maintenance Ticket", "status", ["Open", "Assigned", "Resolved", "Closed"])
-        return KeyboardBuilder.dynamic_filter_grid(options, "/adm_tstat_", back_button=("🔙 Admin Menu", "/menu"))
+        grid = KeyboardBuilder.dynamic_filter_grid(options, "/adm_tstat_", back_button=("🔙 Admin Menu", "/menu"))
+        
+        # 👇 NEW: Insert the PDF download button at the very top (index 0)
+        grid.insert(0, [{"text": "📥 Download Open Tickets (PDF)", "callback_data": "/adm_tkt_pdf"}])
+        
+        return grid
 
     @staticmethod
     def admin_ticket_category_grid(status: str) -> list:
