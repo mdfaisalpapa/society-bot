@@ -2,6 +2,7 @@ import requests
 import numpy as np
 import cv2
 from pyzbar.pyzbar import decode
+from telegram import ReplyKeyboardMarkup, KeyboardButton, WebAppInfo  # 👈 NEW IMPORTS
 from services.messenger import Messenger
 from api.erp import ERPClient
 from conversation.session import SessionManager # Import this

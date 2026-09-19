@@ -14,7 +14,23 @@ class GuardRouter:
         from utils.logger import app_logger
         is_guard = self.erp.is_authorized_guard(chat_id, platform)
 
-        # 👇 NEW: Registration Discovery Command
+        # 👇 1. INTERCEPT NATIVE WEB APP DATA
+        if message and message.get("web_app_data"):
+            # This directly grabs the "verify_TC2-110_66670" string!
+            text = message["web_app_data"]["data"]
+        # 👇 1. SANITIZE DEEP LINKS INSTANTLY
+        if text and text.startswith("/start verify_"):
+            text = text.replace("/start ", "")
+
+        # 👇 2. ADD "verify_" TO THE SECURE COMMANDS LIST
+        # (This ensures manually typed passcodes are still protected by the is_guard check)
+        guard_commands = ("/start verify_", "verify_", "/scan_qr", "/staff_in", "/staff_out", "/guard_walkin")
+        
+        if text and str(text).startswith(guard_commands) or current_session.get("module") == "guard_walkin":
+            if not is_guard:
+                Messenger.send(platform, chat_id, "❌ *Unauthorized Device.* Access denied.")
+                return True
+        # 👇 NEW: Registration Discovery Command (Left open to everyone)
         if text == "/register_guard":
             Messenger.send(
                 platform, 
@@ -24,9 +40,11 @@ class GuardRouter:
                 f"Please provide this ID to your Administrator to enable your device in the system."
             )
             return True
+
+        # ... (Your existing logic continues below) ...
             
         # 1. QR Code Upload Processing
-        if is_guard and message and message.get("photo") and current_session.get("module") != "guard_walkin":
+        if message and message.get("photo") and current_session.get("module") != "guard_walkin":
             app_logger.info(f"Guard {chat_id} uploaded a QR code photo.") # 🪵 LOGGING ADDED
             file_id = message.get("photo")[-1].get("file_id")
             self.gate_controller.process_qr_image(platform, chat_id, message, file_id)
@@ -35,11 +53,7 @@ class GuardRouter:
         # ==========================================
         # 2. DOMESTIC STAFF SCANNER (Check this FIRST!)
         # ==========================================
-        if text.startswith("/start verify_staff_"):
-            if not is_guard:
-                Messenger.send(platform, chat_id, "❌ *Unauthorized Device.* Access denied.")
-                return True
-            
+        if text.startswith("verify_staff_"):
             staff_id = text.split("verify_staff_")[1]
             result = self.erp.verify_staff_pass(staff_id)
             scan_loop_keyboard = KeyboardBuilder.scanner_loop()
@@ -95,11 +109,7 @@ class GuardRouter:
         
 
         # Add this block to GuardRouter.handle in guard_router.py
-        if text.startswith("/start verify_worker_"):
-            if not is_guard:
-                Messenger.send(platform, chat_id, "❌ *Unauthorized Device.*")
-                return True
-    
+        if text.startswith("verify_worker_"):
             worker_pass_id = text.split("verify_worker_")[1]
             result = self.erp.verify_worker_pass(worker_pass_id)
             scan_loop_keyboard = KeyboardBuilder.scanner_loop()
@@ -124,11 +134,7 @@ class GuardRouter:
         ## ==========================================
         # 3. WORKER PASS SCANNER (Mirrors Staff Logic)
         # ==========================================
-        elif text.startswith("/start verify_WP-PASS"):
-            if not is_guard:
-                Messenger.send(platform, chat_id, "❌ *Unauthorized Device.* Access denied.")
-                return True
-            
+        elif text.startswith("verify_WP-PASS"):
             worker_pass_id = text.split("verify_")[1]
             result = self.erp.work_permit.verify_worker_pass(worker_pass_id)
             scan_loop_keyboard = KeyboardBuilder.scanner_loop()
@@ -161,13 +167,7 @@ class GuardRouter:
         # ==========================================
         # 4. VISITOR SCANNER
         # ==========================================
-        elif text.startswith("/start verify_"):
-            if not is_guard:
-                from utils.logger import app_logger
-                app_logger.warning(f"Unauthorized scan attempt from {chat_id}") 
-                Messenger.send(platform, chat_id, "❌ *Unauthorized Device.* Access denied.")
-                return True
-            
+        elif text.startswith("verify_"):
             passcode = text.split("verify_")[1]
             result = self.erp.verify_visitor_passcode(passcode)
             
@@ -212,17 +212,13 @@ class GuardRouter:
             return True
        
         if text == "/scan_qr":
-            if not is_guard: 
-                Messenger.send(platform, chat_id, "❌ Unauthorized.")
-            else: 
-                self.gate_controller.handle_scan_prompt(platform, chat_id)
+            self.gate_controller.handle_scan_prompt(platform, chat_id)
             return True
 
         # 2.5 Staff Operations (New)
         if text.startswith("/staff_in ") or text.startswith("/staff_out "):
-            if not is_guard:
-                Messenger.send(platform, chat_id, "❌ Unauthorized.")
-                return True
+            Messenger.send(platform, chat_id, "❌ Unauthorized.")
+            return True
             
             parts = text.split(" ")
             if len(parts) < 2:
@@ -235,7 +231,7 @@ class GuardRouter:
             return True
 
         # 3. Walk-in Operations
-        if text == "/guard_walkin" and is_guard:
+        if text == "/guard_walkin":
             self.session.update_session(chat_id, module="guard_walkin", step="awaiting_flat", data={})
             Messenger.send(platform, chat_id, "🚶 *Walk-in Registration*\n\nEnter the target Flat Number (e.g., TC2-110):")
             return True
@@ -353,13 +349,13 @@ class GuardRouter:
                         call_keyboard.append(btn_row)
                         
                         # Optional Cellular Backup
-                        active_phone = getattr(profile, 'active_phone', None)
-                        if active_phone:
-                            if not has_phone:
-                                msg_text += "\n\n*Backup Cellular Contacts:*"
-                                has_phone = True
+                        #active_phone = getattr(profile, 'active_phone', None)
+                        #if active_phone:
+                         #   if not has_phone:
+                          #      msg_text += "\n\n*Backup Cellular Contacts:*"
+                           #     has_phone = True
                             # 👇 NEW: Also show the name in the cellular backup text
-                            msg_text += f"\n📞 {res_name} ({role}): {active_phone}"
+                            #msg_text += f"\n📞 {res_name} ({role}): {active_phone}"
                             
                 Messenger.send(
                     platform, 

@@ -20,6 +20,7 @@ from controllers.staff_controller import StaffController
 from controllers.family_controller import FamilyController
 from controllers.work_permit_controller import WorkPermitController
 from controllers.admin_controller import AdminController
+from controllers.vehicle_controller import VehicleController
 
 # Routers
 from conversation.routers.guard_router import GuardRouter
@@ -33,7 +34,7 @@ from conversation.routers.family_router import FamilyRouter
 from conversation.routers.work_permit_router import WorkPermitRouter
 from conversation.routers.admin_router import AdminRouter
 from conversation.routers.help_router import HelpRouter  # 👈 ADD THIS
-
+from conversation.routers.vehicle_router import VehicleRouter
 class ConversationEngine:
     def __init__(self):
         self.session_manager = SessionManager()
@@ -53,6 +54,8 @@ class ConversationEngine:
         self.family_controller = FamilyController(self.erp_client, self.session_manager)
         self.work_permit_controller = WorkPermitController(self.erp_client, self.session_manager)
         self.admin_controller = AdminController(self.admin_api, self.session_manager)
+        self.vehicle_controller = VehicleController(self.erp_client, self.session_manager) # NEW
+
         
         # Initialize Routers
         self.guard_router = GuardRouter(self.erp_client, self.guard_controller, self.session_manager)
@@ -67,6 +70,8 @@ class ConversationEngine:
         self.family_router = FamilyRouter(self.family_controller)        
         self.work_permit_router = WorkPermitRouter(self.work_permit_controller, self.session_manager)
         self.admin_router = AdminRouter(self.admin_controller)        
+        self.vehicle_router = VehicleRouter(self.vehicle_controller) # NEW
+        
 
         self.core_router = CoreRouter(
             self.erp_client, self.session_manager, 
@@ -76,7 +81,6 @@ class ConversationEngine:
         self.help_router = HelpRouter(self.menu_controller)
         # Define Priority Order
         self.routers = [
-            self.guard_router,
             self.help_router,    # 👈 ADD IT HERE
             self.auth_router,
             self.core_router,
@@ -84,8 +88,10 @@ class ConversationEngine:
             self.family_router,
             self.tenant_router,
             self.maintenance_router,
+            self.vehicle_router, # NEW
             self.admin_router,
             self.work_permit_router,
+            self.guard_router,
             self.visitor_router
         ]
 
@@ -213,7 +219,7 @@ class ConversationEngine:
         
         is_allowed = False
         welcome_msg = ""
-        valid_statuses = ["Verified by Bot", "Verified Physically", "Verified"]
+        valid_statuses = ["Verified by Bot", "Verified Physically", "Verified", "Verified with CGEWHO Data"]
         
         # --- DEBUG LOGGING ---
         app_logger.info(f"JOIN REQUEST: User {user_id} -> Group {group_id}")

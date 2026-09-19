@@ -14,7 +14,7 @@ class CoreRouter:
         # ==========================================
         # 🛡️ THE SECURITY QUARANTINE (Hard-Gate)
         # ==========================================
-        valid_statuses = ["Verified by Bot", "Verified Physically", "Verified"]
+        valid_statuses = ["Verified by Bot", "Verified Physically", "Verified", "Verified with CGEWHO Data"]
         
         # If they are an Owner, but their status is NOT verified...
         if active_profile and active_profile.role == "Owner" and getattr(active_profile, 'owner_status', '') not in valid_statuses:
@@ -77,13 +77,15 @@ class CoreRouter:
                 Messenger.send(platform, chat_id, "ℹ️ *How to use /whois*\n\nPlease **reply** to a message sent by the person you want to identify, and type `/whois`.")
                 
             return True
-        # ... (The rest of your existing CoreRouter handle code continues below) ...
-        if text.startswith("/start"):
+        # 👇 ADDED: Let scanner deep-links fall through to guard_router.py
+        if text.startswith("/start verify_"):
+            pass # Do nothing, let the code continue down
+            
+        elif text.startswith("/start"):
             self.session.clear_session(chat_id)
             
-            # 👇 NEW: Catch the Deep Link from the Group Request
+            # Catch the Deep Link from the Group Request
             if text == "/start register" and not active_profile:
-                # Call whatever method starts your registration flow
                 self.profile.start_registration(platform, chat_id) 
                 return True
                 
@@ -100,29 +102,43 @@ class CoreRouter:
             self.menu.show_main_menu(platform, chat_id, active_profile)
             return True
             
-        # 👇 NEW: Unified Hub Portal Navigation
+        # ==========================================
+        # 🔒 STRICT: Unified Hub Portal Navigation
+        # ==========================================
         if text == "/portal_resident":
+            # Resident portal is open to all logged-in profiles
             self.menu.show_resident_portal(platform, chat_id, active_profile)
             return True
             
         if text == "/portal_guard":
-            self.menu.show_guard_portal(platform, chat_id, active_profile)
+            clean_staff_role = getattr(active_profile, 'staff_role', '').strip() if getattr(active_profile, 'staff_role', None) else ""
+            if clean_staff_role == "Security Guard":
+                self.menu.show_guard_portal(platform, chat_id, active_profile)
+            else:
+                Messenger.send(platform, chat_id, "❌ Unauthorized. This portal is restricted to Security Personnel.")
             return True
             
         if text == "/portal_admin":
-            self.menu.show_admin_portal(platform, chat_id, active_profile)
+            clean_staff_role = getattr(active_profile, 'staff_role', '').strip() if getattr(active_profile, 'staff_role', None) else ""
+            if clean_staff_role in ["Office Admin", "Estate Manager"]:
+                self.menu.show_admin_portal(platform, chat_id, active_profile)
+            else:
+                Messenger.send(platform, chat_id, "❌ Unauthorized. This portal is restricted to the Estate Office.")
             return True
             
         if text == "/portal_verifier":
-            self.menu.show_verifier_portal(platform, chat_id, active_profile)
-            return True
-        # 👇 NEW: Unified Hub Portal Navigation
-        if text == "/portal_resident":
-            self.menu.show_resident_portal(platform, chat_id, active_profile)
+            clean_staff_role = getattr(active_profile, 'staff_role', '').strip() if getattr(active_profile, 'staff_role', None) else ""
+            if clean_staff_role == "Doc Verifier":
+                self.menu.show_verifier_portal(platform, chat_id, active_profile)
+            else:
+                Messenger.send(platform, chat_id, "❌ Unauthorized. This portal is restricted to Document Verifiers.")
             return True
             
         if text == "/portal_aoa":
-            self.menu.show_aoa_portal(platform, chat_id, active_profile)
+            if getattr(active_profile, 'is_aoa_member', False):
+                self.menu.show_aoa_portal(platform, chat_id, active_profile)
+            else:
+                Messenger.send(platform, chat_id, "❌ Unauthorized. You do not have AoA Committee privileges.")
             return True
 
         if text == "/profile": 

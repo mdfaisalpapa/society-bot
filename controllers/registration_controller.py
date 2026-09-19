@@ -61,7 +61,7 @@ class RegistrationController:
         
         # 5. Check if the flat is already verified
         status = getattr(profile, 'owner_status', 'Unverified')
-        verified_statuses = ["Verified", "Verified by Bot", "Verified Physically"]
+        verified_statuses = ["Verified", "Verified by Bot", "Verified Physically", "Verified with CGEWHO Data"]
         
         if status in verified_statuses:
             # ALREADY VERIFIED: Proceed to Role Selection
@@ -231,7 +231,7 @@ class RegistrationController:
                     self.erp.update_resident_field(flat_number, chat_id, "phone", shared_phone)
                 
                 # 👇 NEW: The user shared their contact successfully. Officially mark as verified!
-                if getattr(profile, 'owner_status', 'Unverified') not in ["Verified", "Verified by Bot", "Verified Physically"]:
+                if getattr(profile, 'owner_status', 'Unverified') not in ["Verified", "Verified by Bot", "Verified Physically", "Verified with CGEWHO Data"]:
                     api_base = getattr(self.erp, "base_client", self.erp)
                     api_base.update_document("Owners", profile.owner_id, {"registration_status": "Verified by Bot"})
 

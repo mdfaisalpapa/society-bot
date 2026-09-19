@@ -7,7 +7,17 @@ class StaffRouter:
     def handle(self, platform, chat_id, text, message, current_session, active_profile):
         from utils.logger import app_logger
         
+        # 👇 THE GLOBAL GATEKEEPER
+        staff_commands = ("/staff", "/st_add", "/st_cat_", "/st_link_", "/stpass_", "/st_unlink_", "/st_view_", "/st_rate_", "/st_comp_")
+        
+        if text and str(text).startswith(staff_commands) or current_session.get("module") == "staff":
+            if not active_profile:
+                Messenger.send(platform, chat_id, "❌ Profile not found. Please register to use staff management.")
+                return True
+
         app_logger.info(f"DEBUG SESSION DUMP: {current_session}")
+        
+        # ... (Your existing logic continues below) ...
         
         # 👇 FIX 1: Read the state from the 'module' key, because that's where it saved!
         state = current_session.get("module") 
@@ -42,39 +52,30 @@ class StaffRouter:
             return True
         # 1. Main Staff Menu
         if text == "/staff":
-            if not active_profile:
-                Messenger.send(platform, chat_id, "❌ Profile not found.")
-            else:
-                self.controller.show_staff_menu(platform, chat_id, active_profile.flat_number)
+            self.controller.show_staff_menu(platform, chat_id, active_profile.flat_number)
             return True
 
         # 👇 2. NEW: Show Categories to Add Staff
         if text == "/st_add":
-            if not active_profile: Messenger.send(platform, chat_id, "❌ Unauthorized.")
-            else: self.controller.show_staff_categories(platform, chat_id)
+            self.controller.show_staff_categories(platform, chat_id)
             return True
 
         # 👇 3. NEW: Show Staff in a specific Category
         if text.startswith("/st_cat_"):
-            if not active_profile: Messenger.send(platform, chat_id, "❌ Unauthorized.")
-            else: 
-                category = text.split("_")[2]
-                self.controller.show_staff_by_category(platform, chat_id, category)
+            category = text.split("_")[2]
+            self.controller.show_staff_by_category(platform, chat_id, category)
             return True
             
         # 👇 4. NEW: Process the Linkage
         if text.startswith("/st_link_"):
-            if not active_profile: Messenger.send(platform, chat_id, "❌ Unauthorized.")
-            else:
-                staff_id = text.split("/st_link_")[1]
-                self.controller.process_link_staff(platform, chat_id, active_profile.flat_number, staff_id)
+            staff_id = text.split("/st_link_")[1]
+            self.controller.process_link_staff(platform, chat_id, active_profile.flat_number, staff_id)
             return True
 
         # 5. Generate Daily Gate Pass
         if text.startswith("/stpass_"):
-            if not active_profile:
-                Messenger.send(platform, chat_id, "❌ Unauthorized.")
-                return True
+            Messenger.send(platform, chat_id, "❌ Unauthorized.")
+            return True
                 
             parts = text.split("_")
             staff_id = parts[1]
@@ -85,35 +86,23 @@ class StaffRouter:
             return True
         # 👇 NEW: Catch the Unlink button
         if text.startswith("/st_unlink_"):
-            if not active_profile: 
-                Messenger.send(platform, chat_id, "❌ Unauthorized.")
-            else:
-                staff_id = text.split("/st_unlink_")[1]
-                self.controller.process_unlink_staff(platform, chat_id, active_profile.flat_number, staff_id)
+            staff_id = text.split("/st_unlink_")[1]
+            self.controller.process_unlink_staff(platform, chat_id, active_profile.flat_number, staff_id)
             return True
         # 👇 Catch the "View Details" button
         if text.startswith("/st_view_"):
-            if not active_profile:
-                Messenger.send(platform, chat_id, "❌ Unauthorized.")
-            else:
-                staff_id = text.split("/st_view_")[1]
-                self.controller.show_staff_details(platform, chat_id, staff_id)
+            staff_id = text.split("/st_view_")[1]
+            self.controller.show_staff_details(platform, chat_id, staff_id)
             return True
         # 👇 Catch the "Rate" and "Complain" button clicks 👇
         if text.startswith("/st_rate_"):
-            if not active_profile: 
-                Messenger.send(platform, chat_id, "❌ Unauthorized.")
-            else:
-                staff_id = text.split("/st_rate_")[1]
-                self.controller.prompt_staff_rating(platform, chat_id, staff_id)
+            staff_id = text.split("/st_rate_")[1]
+            self.controller.prompt_staff_rating(platform, chat_id, staff_id)
             return True
             
         if text.startswith("/st_comp_"):
-            if not active_profile: 
-                Messenger.send(platform, chat_id, "❌ Unauthorized.")
-            else:
-                staff_id = text.split("/st_comp_")[1]
-                self.controller.prompt_staff_complaint(platform, chat_id, staff_id)
+            staff_id = text.split("/st_comp_")[1]
+            self.controller.prompt_staff_complaint(platform, chat_id, staff_id)
             return True
 
         return False

@@ -43,7 +43,7 @@ class MenuController:
             is_owner = (role == "Owner")
             is_rented = getattr(active_profile, 'is_rented', False)
             status = getattr(active_profile, 'owner_status', 'Unverified') if is_owner else "Verified"
-            verified_statuses = ["Verified", "Verified by Bot", "Verified Physically"]
+            verified_statuses = ["Verified", "Verified by Bot", "Verified Physically", "Verified with CGEWHO Data"]
             
             if status not in verified_statuses and status != "Pending":
                 text += "\n⚠️ *Action Required:* You are not verified. Please go to your Profile to upload your Possession Letter and gain access to the community groups.\n"
@@ -146,7 +146,7 @@ class MenuController:
     def show_aoa_portal(self, platform, chat_id, active_profile):
         keyboard = [
             [{"text": "🛡️ Monitor Maintenance Tickets", "callback_data": "/aoa_monitor_menu_open"}],
-            # 👇 BACK BUTTON CHANGED
+            [{"text": "👷 Manage Work Permits", "callback_data": "/aoa_wp_list_Pending"}],
             [{"text": "🔙 Back to Main Hub", "callback_data": "/menu"}]
         ]
         

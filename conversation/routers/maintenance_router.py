@@ -5,7 +5,15 @@ class MaintenanceRouter:
         self.controller = maintenance_controller
 
     def handle(self, platform, chat_id, text, message, current_session, active_profile):
-        # 1. File Uploads (Native Reply & Web Context)
+        
+        # ? GLOBAL GATEKEEPER: Block non-AoA members from AoA commands
+        if text and str(text).startswith("/aoa_"):
+            if not getattr(active_profile, 'is_aoa_member', False):
+                from services.messenger import Messenger
+                Messenger.send(platform, chat_id, "? Unauthorized. You do not have AoA Committee privileges.")
+                return True
+
+        # 1. File Uploads (Native Reply & Web Context) ...
         if message and (message.get("photo") or message.get("document")):
             reply_text = message.get("reply_to_message", {}).get("text") or message.get("reply_to_message", {}).get("caption") or ""
             module = current_session.get("module") or ""
@@ -13,8 +21,8 @@ class MaintenanceRouter:
             if "Module: Maintenance Ticket" in reply_text:
                 self.controller.handle_file_upload(platform, chat_id, self._extract_id(reply_text), message)
                 return True
-            elif module == "maintenance" and current_session.get("data", {}).get("ticket_id"):
-                self.controller.handle_file_upload(platform, chat_id, current_session["data"]["ticket_id"], message)
+            elif module == "maintenance" and current_session.get("data", {}).get("target_doc"):
+                self.controller.handle_file_upload(platform, chat_id, current_session["data"]["target_doc"], message)
                 return True
 
         # 2. Command Routing

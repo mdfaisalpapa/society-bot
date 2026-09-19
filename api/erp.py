@@ -11,6 +11,7 @@ from .facility_api import FacilityService
 from .staff_api import StaffService  
 from .family_api import FamilyService  
 from .work_permit_api import WorkPermitService # ? NEW
+from api.vehicle_api import VehicleService
 
 class ERPClient(BaseERPClient):
     def __init__(self):
@@ -28,6 +29,7 @@ class ERPClient(BaseERPClient):
         self.staff = StaffService(self) 
         self.family = FamilyService(self) 
         self.work_permit = WorkPermitService(self) # ? NEW
+        self.vehicle = VehicleService(self)
 
     # --- Profile Wrappers ---
     def get_resident_profile(self, flat_number): return self.profile.get_resident_profile(flat_number)

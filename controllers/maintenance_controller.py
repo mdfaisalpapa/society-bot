@@ -3,6 +3,7 @@ from api.erp import ERPClient
 from entities.models import ResidentProfile
 from conversation.session import SessionManager
 import requests
+import json
 import threading
 from utils.keyboard import KeyboardBuilder
 
@@ -346,11 +347,6 @@ class MaintenanceController:
     # ==========================================
 
     def aoa_show_monitor_menu(self, platform: str, chat_id: str, profile: ResidentProfile, status_filter: str):
-        import json
-        if not getattr(profile, 'is_aoa_member', 0):
-            Messenger.send(platform, chat_id, "❌ Unauthorized. You do not have AoA privileges.")
-            return
-
         # 1. Fetch tickets to calculate unique flats per category
         erp_statuses = ["Pending", "In Progress", "Open", "Assigned"] if status_filter == "open" else ["Resolved", "Closed"]
         filters = json.dumps([["status", "in", erp_statuses]])
@@ -380,9 +376,6 @@ class MaintenanceController:
         Messenger.send(platform, chat_id, text, inline_keyboard=KeyboardBuilder.aoa_monitor_category_grid(status_filter, category_counts))
     def aoa_show_ticket_list(self, platform: str, chat_id: str, profile: ResidentProfile, status_filter: str, category: str):
         """When a category is clicked, show the list of flats having tickets in this category (oldest first)."""
-        import json
-        if not getattr(profile, 'is_aoa_member', 0): return
-        
         erp_statuses = ["Pending", "In Progress", "Open", "Assigned"] if status_filter == "open" else ["Resolved", "Closed"]
         filters = json.dumps([["category", "=", category], ["status", "in", erp_statuses]])
         fields = json.dumps(["resident", "creation"])
@@ -409,9 +402,6 @@ class MaintenanceController:
         text = f"🛡️ **{category} Tickets ({status_filter.upper()})**\n\nSelect a flat to view its complaints in this category (oldest first):"
         Messenger.send(platform, chat_id, text, inline_keyboard=KeyboardBuilder.aoa_category_flat_list_grid(flats, status_filter, category))
     def aoa_show_flat_tickets(self, platform: str, chat_id: str, profile: ResidentProfile, status_filter: str, flat_number: str):
-        import json
-        if not getattr(profile, 'is_aoa_member', 0): return
-        
         erp_statuses = ["Pending", "In Progress", "Open", "Assigned"] if status_filter == "open" else ["Resolved", "Closed"]
         filters = json.dumps([["resident", "=", flat_number], ["status", "in", erp_statuses]])
         
@@ -429,8 +419,6 @@ class MaintenanceController:
         Messenger.send(platform, chat_id, text, inline_keyboard=KeyboardBuilder.aoa_ticket_list_grid(tickets, status_filter, f"Flat {flat_number}"))
 
     def aoa_view_ticket(self, platform: str, chat_id: str, ticket_name: str, profile: ResidentProfile):
-        if not getattr(profile, 'is_aoa_member', 0): return
-        
         ticket = self.erp.get_ticket_details(ticket_name)
         if not ticket:
             Messenger.send(platform, chat_id, "❌ Ticket not found.")
@@ -468,8 +456,6 @@ class MaintenanceController:
 
     def aoa_show_flat_list(self, platform: str, chat_id: str, profile: ResidentProfile, status_filter: str):
         """Fetches all tickets matching the status, orders them oldest first, and extracts unique flats."""
-        import json
-        if not getattr(profile, 'is_aoa_member', 0): return
         
         erp_statuses = ["Pending", "In Progress", "Open", "Assigned"] if status_filter == "open" else ["Resolved", "Closed"]
         filters = json.dumps([["status", "in", erp_statuses]])
@@ -497,8 +483,6 @@ class MaintenanceController:
 
     def aoa_show_category_flat_tickets(self, platform: str, chat_id: str, profile: ResidentProfile, status_filter: str, flat_number: str, category: str):
         """Shows tickets for a specific flat filtered by a specific category."""
-        import json
-        if not getattr(profile, 'is_aoa_member', 0): return
         
         erp_statuses = ["Pending", "In Progress", "Open", "Assigned"] if status_filter == "open" else ["Resolved", "Closed"]
         filters = json.dumps([["category", "=", category], ["resident", "=", flat_number], ["status", "in", erp_statuses]])

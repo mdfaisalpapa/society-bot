@@ -125,10 +125,7 @@ class TenantController:
             Messenger.send(platform, chat_id, "❌ Failed to create tenant in ERPNext. Please try again.")
     def show_management_menu(self, platform: str, chat_id: str, profile):
         # 🛡️ STRICT SECURITY BOUNCER
-        if getattr(profile, 'role', '') != "Owner":
-            Messenger.send(platform, chat_id, "⛔ *Access Denied*\n\nOnly Flat Owners are authorized to manage Tenant details.")
-            return
-
+        
         if profile.is_rented:
             # 👇 CHANGED: We now check the actual chat ID instead of the deleted boolean
             is_bot_linked = bool(profile.tenant_telegram_chat_id)

@@ -61,15 +61,27 @@ class VisitorController:
                 Messenger.send(platform, chat_id, "How long will they be staying?", inline_keyboard=KeyboardBuilder.visitor_duration_grid())
             else:
                 session_data["date"] = date_sel
-                self.session.update_session(chat_id, step="awaiting_vehicle", module="visitor", data=session_data)
-                Messenger.send(platform, chat_id, "🚗 Enter Vehicle Number (or click Skip):", inline_keyboard=KeyboardBuilder.visitor_vehicle_skip_grid())
+                if session_data.get("purpose", "").lower() == "delivery":
+                    self.process_final_creation(
+                        platform, chat_id, session_data["flat"], session_data["visitor_name"], 
+                        session_data.get("date", "today"), session_data.get("purpose", "Guest"), "", session_data.get("end_date", "")
+                    )
+                else:
+                    self.session.update_session(chat_id, step="awaiting_vehicle", module="visitor", data=session_data)
+                    Messenger.send(platform, chat_id, "🚗 Enter Vehicle Number (or click Skip):", inline_keyboard=KeyboardBuilder.visitor_vehicle_skip_grid())
             return
             
         elif current_step == "awaiting_end_date":
             session_data["date"] = "today" 
             session_data["end_date"] = text.replace("/vend_", "")
-            self.session.update_session(chat_id, step="awaiting_vehicle", module="visitor", data=session_data)
-            Messenger.send(platform, chat_id, "🚗 Enter Vehicle Number (or click Skip):", inline_keyboard=KeyboardBuilder.visitor_vehicle_skip_grid())
+            if session_data.get("purpose", "").lower() == "delivery":
+                self.process_final_creation(
+                    platform, chat_id, session_data["flat"], session_data["visitor_name"], 
+                    session_data.get("date", "today"), session_data.get("purpose", "Guest"), "", session_data.get("end_date", "")
+                )
+            else:
+                self.session.update_session(chat_id, step="awaiting_vehicle", module="visitor", data=session_data)
+                Messenger.send(platform, chat_id, "🚗 Enter Vehicle Number (or click Skip):", inline_keyboard=KeyboardBuilder.visitor_vehicle_skip_grid())
             return
 
         elif current_step == "awaiting_vehicle":
@@ -83,37 +95,79 @@ class VisitorController:
         """Centralized method to hit ERPNext, generate a QR code locally, and display the result."""
         import qrcode
         import io
+        import urllib.parse
+        from datetime import datetime, timedelta
+        
         final_end_date = end_date if end_date else date_sel
         result = self.erp.create_preapproved_visitor(resident_flat, visitor_name, date_sel, purpose, vehicle, end_date)
         
         if result.get("success"):
             passcode = result.get("passcode")
             
-            # 👇 Generate QR Code locally in memory (100% reliable) 👇
+            # 1. Format the actual display date
+            if date_sel.lower() == "today":
+                display_date = datetime.now().strftime("%d %b %Y")
+            elif date_sel.lower() == "tomorrow":
+                display_date = (datetime.now() + timedelta(days=1)).strftime("%d %b %Y")
+            else:
+                display_date = date_sel.title()
+
+            # Generate QR Code locally for the Telegram display
             qr_data = f"verify_{passcode}"
             qr = qrcode.QRCode(version=1, box_size=10, border=2)
             qr.add_data(qr_data)
             qr.make(fit=True)
             img = qr.make_image(fill_color="black", back_color="white")
             
+            # ... (Inside process_final_creation)
+            
+            # ... (Inside process_final_creation)
+            
             bio = io.BytesIO()
             img.save(bio, 'PNG')
             bio.seek(0)
             
-            # Construct the visually clean caption
-            msg = (f"✅ *Visitor Gate Pass*\n\n"
-                   f"👤 *Name:* {visitor_name}\n"
-                   f"🔖 *Purpose:* {purpose}\n")
-            if vehicle: msg += f"🚗 *Vehicle:* {vehicle}\n"
-            msg += (f"📅 *Entry:* {date_sel.title()}\n"
-                   f"🏠 *Host:* {resident_flat}\n\n"
-                   f"📲 *Forward this QR Code to your guest.* They just need to flash it at the gate!")
+            # 👇 1. Fetch the public URL from your environment variables
+            import os
+            public_erp_url = os.getenv("PUBLIC_ERP_URL")
+            
+                
+            # 👇 2. Construct the URL pointing to the function you just created
+            qr_url = f"{public_erp_url.rstrip('/')}/api/method/society_erp.api.generate_qr?passcode={passcode}"
+            
+            # 3. Construct the WhatsApp message using the new display_date
+            pass_details = (
+                f"🏢 *KVC-III Gate Pass*\n\n"
+                f"👤 Visitor: {visitor_name}\n"
+                f"🏠 Host: Flat {resident_flat}\n"
+                f"📅 Entry: {display_date}\n"
+            )
+         
+            if vehicle: 
+                pass_details += f"🚗 Vehicle: {vehicle}\n"
+            
+            pass_details += f"\n🎟️ Passcode: {passcode}\n\n"
+            pass_details += f"📱 Tap link below to view QR Code for the gate:\n{qr_url}"
+
+            # 4. Create WhatsApp Share Link (Raw string addition)
+            encoded_text = urllib.parse.quote(pass_details)
+            base_url = "https://api.whatsapp.com/send?text="
+            wa_link = base_url + encoded_text
+            
+            # 5. Telegram Message Caption
+            msg = (f"✅ *Visitor Gate Pass Generated!*\n\n"
+                   f"Tap the **Share on WhatsApp** button below. It will automatically draft a message containing the pass details and a link to this QR code for your guest!")
+            
+            # 6. Build Keyboard
+            keyboard = [
+                [{"text": "💬 Share Pass & QR on WhatsApp", "url": wa_link}],
+                [{"text": "🔙 Main Menu", "callback_data": "/menu"}]
+            ]
                    
-            # Send the locally generated image directly to Telegram
-            Messenger.send_photo(platform, chat_id, bio, caption=msg, grid=[[{"🔙 Main Menu": "/menu"}]])
+            Messenger.send_photo(platform, chat_id, bio, caption=msg, inline_keyboard=keyboard)
             
         else:
-            Messenger.send(platform, chat_id, f"❌ Failed. Error:\n`{result.get('error')[:200]}`", grid=[[{"🔙 Main Menu": "/menu"}]])
+            Messenger.send(platform, chat_id, f"❌ Failed. Error:\n`{result.get('error')[:200]}`", inline_keyboard=[[{"text": "🔙 Main Menu", "callback_data": "/menu"}]])
         
         self.session.clear_session(chat_id)
     # --- HISTORY MODULE ---
@@ -131,7 +185,6 @@ class VisitorController:
                 raw_status = log.get('status', 'Unknown')
                 expected_date = log.get('expected_date')
                 
-                # Determine Status Display
                 if raw_status.lower() == "entered":
                     status_display = "✅ Visited (Inside)"
                 elif raw_status.lower() == "approved":
@@ -141,7 +194,6 @@ class VisitorController:
                 else:
                     status_display = f"🚦 {raw_status}"
 
-                # Parse Creation Date
                 raw_creation = log.get('creation', '')
                 try:
                     clean_date = raw_creation.split(".")[0] 
@@ -150,7 +202,6 @@ class VisitorController:
                 except:
                     formatted_creation = str(raw_creation).split(" ")[0] if raw_creation else "N/A"
                     
-                # Parse Expected Date
                 formatted_expected = None
                 if expected_date:
                     try:
@@ -161,7 +212,6 @@ class VisitorController:
 
                 reply += f"👤 *{log.get('visitor_name', 'Unknown')}* ({log.get('entry_type', '')})\n"
                 
-                # 👇 Display Logic: Show Expected Date if they haven't arrived yet 👇
                 if formatted_expected and raw_status.lower() == "approved":
                     reply += f"   📆 *Expected On:* {formatted_expected}\n"
                 else:
@@ -169,91 +219,9 @@ class VisitorController:
                     
                 reply += f"   {status_display}\n\n"
                 
-        # Pagination row
         btns = []
         btns.append({"⬅️ Previous Week": f"/visitors_{offset + 1}"})
         if offset > 0: 
             btns.append({"Next Week ➡️": f"/visitors_{offset - 1}" if offset > 1 else "/history"})
             
-        
-            
         Messenger.send(platform, chat_id, reply, inline_keyboard=KeyboardBuilder.visitor_history_grid(offset))
-
-    def process_date_selection(self, platform: str, chat_id: str, selected_date: str, flat_number: str):
-        """Saves the date and generates the final Gate Pass."""
-        from utils.logger import app_logger
-        import random
-        from datetime import datetime, timedelta
-        import requests 
-        import qrcode # 👇 Imported for local QR generation
-        import io     # 👇 Imported for memory stream
-        
-        app_logger.info(f"Processing visitor date selection: {selected_date} for {chat_id}")
-        
-        # 1. Fetch the active session
-        session = self.session.get_session(chat_id)
-        if not session or session.get("module") != "visitor":
-            self.session.clear_session(chat_id)
-            Messenger.send(platform, chat_id, "❌ Session expired. Please click '🎫 Gate Pass' to start over.")
-            return
-
-        # 2. Extract the data we have collected so far
-        session_data = session.get("data", {})
-        visitor_name = session_data.get("visitor_name", "Unknown Visitor")
-        purpose = session_data.get("purpose", "Guest") 
-        
-        # 3. Convert 'today' or 'tomorrow' into an actual YYYY-MM-DD date for ERPNext
-        if selected_date == "today":
-            actual_date = datetime.now().strftime("%Y-%m-%d")
-        elif selected_date == "tomorrow":
-            actual_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-        else:
-            actual_date = selected_date
-
-        # 4. Clear the session because we are done collecting information
-        self.session.clear_session(chat_id)
-        
-        # 5. Generate the pass logic (Sending to ERPNext)
-        passcode = f"VIS_{flat_number.replace(' ', '_')}_{random.randint(1000, 9999)}"
-        
-        Messenger.send(platform, chat_id, "⏳ Generating Gate Pass...")
-        
-        payload = {
-            "resident": flat_number,
-            "visitor_name": visitor_name,
-            "status": "Approved",
-            "expected_date": actual_date,
-            "end_date": actual_date, # 👇 NEW: Force end_date to be same as start_date for single-day
-            "pass_type": "Single",   # 👇 NEW: Explicitly mark as Single pass
-            "purpose_of_visit": purpose, 
-            "passcode": passcode
-        }
-
-        # Save to ERPNext
-        url = f"{self.erp.base_url}/Visitor Log"
-        res = requests.post(url, headers=self.erp.headers, json=payload)
-        
-        if res.status_code == 200:
-            msg = (f"✅ *Pre-Approved Gate Pass Generated*\n\n"
-                   f"👤 *Visitor:* {visitor_name}\n"
-                   f"🏠 *Flat:* {flat_number}\n"
-                   f"📅 *Valid On:* {actual_date}\n\n"
-                   f"Please share this QR code with your visitor to show at the main gate.")
-            
-            # 👇 Generate QR Code locally in memory (100% reliable) 👇
-            qr_data = f"verify_{passcode}"
-            qr = qrcode.QRCode(version=1, box_size=10, border=2)
-            qr.add_data(qr_data)
-            qr.make(fit=True)
-            img = qr.make_image(fill_color="black", back_color="white")
-            
-            bio = io.BytesIO()
-            img.save(bio, 'PNG')
-            bio.seek(0)
-            
-            # Send the locally generated image directly to Telegram
-            Messenger.send_photo(platform, chat_id, bio, caption=msg)
-            
-        else:
-            app_logger.error(f"Failed to create visitor pass: {res.text}")
-            Messenger.send(platform, chat_id, "❌ Failed to generate pass in the system. Please try again later.")

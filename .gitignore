@@ -1,8 +1,6 @@
 # Environment
 .env
 .env.local
-*.pyc
-__pycache__/
 
 # Database
 database/
@@ -20,5 +18,15 @@ Thumbs.db
 
 # Temp
 temp_uploads/
-*.log
+
+# Virtual Environments
 venv/
+env/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Logs & Session Data
+*.log
+sessions/

@@ -6,8 +6,8 @@ class WorkPermitService:
         self.headers = base_client.headers
         self.base_url = base_client.base_url
 
-    def create_work_permit(self, flat_number: str, chat_id: str, data: dict) -> bool:
-        """Pushes a new Work Permit request to the ERPNext DocType."""
+    def create_work_permit(self, flat_number: str, chat_id: str, data: dict) -> str:
+        """Pushes a new Work Permit request and returns the Permit ID on success."""
         payload = {
             "flat_number": str(flat_number).upper().strip(),
             "requested_by_chat_id": str(chat_id),
@@ -24,16 +24,49 @@ class WorkPermitService:
             json=payload
         )
         
+        if res.status_code == 200:
+            return res.json().get("data", {}).get("name")
+        return None
+
+    def get_aoa_permits_by_status(self, status: str) -> list:
+        """Fetches AOA work permits filtered by a specific status."""
+        import json
+        clean_base = self.base_url.split('/api/')[0]
+        url = f"{clean_base}/api/resource/Work Permit"
+        
+        params = {
+            "filters": json.dumps([["status", "=", status]]),
+            "fields": '["name", "flat_number", "contractor_name", "work_type"]',
+            "order_by": "creation desc"
+        }
+        
+        res = requests.get(url, headers=self.headers, params=params)
+        if res.status_code == 200:
+            return res.json().get("data", [])
+        return []
+
+    def update_permit_status(self, permit_id: str, status: str) -> bool:
+        """Updates the status of a specific Work Permit."""
+        clean_base = self.base_url.split('/api/')[0]
+        url = f"{clean_base}/api/resource/Work Permit/{permit_id}"
+        
+        payload = {"status": status}
+        res = requests.put(url, headers=self.headers, json=payload)
+        
         return res.status_code == 200
 
-    def get_active_permits(self, flat_number: str) -> list:
-        """Fetches approved work permits for the flat_number so owners can add workers."""
+    def get_active_permits(self, flat_number: str, status_filter: str = "Approved") -> list:
+        """Fetches work permits for the flat_number. Defaults to 'Approved' only."""
+        filters = [["flat_number", "=", str(flat_number).upper().strip()]]
+        
+        if status_filter:
+            filters.append(["status", "=", status_filter])
+            
         params = {
-            "filters": json.dumps([
-                ["flat_number", "=", str(flat_number).upper().strip()], 
-                ["status", "=", "Approved"]
-            ]),
-            "fields": '["name", "contractor_name", "work_type", "end_date"]'
+            "filters": json.dumps(filters),
+            # Added "status" and "start_date" to the requested fields
+            "fields": '["name", "contractor_name", "work_type", "end_date", "status", "start_date"]',
+            "order_by": "creation desc" # Added to show newest first
         }
         
         res = requests.get(f"{self.base_url}/Work Permit", headers=self.headers, params=params)
@@ -41,6 +74,16 @@ class WorkPermitService:
         if res.status_code == 200 and res.json().get("data"):
             return res.json()["data"]
         return []
+
+    def get_permit_details(self, permit_id: str) -> dict:
+        """Fetches the full details of a specific Work Permit."""
+        clean_base = self.base_url.split('/api/')[0]
+        url = f"{clean_base}/api/resource/Work Permit/{permit_id}"
+        
+        res = requests.get(url, headers=self.headers)
+        if res.status_code == 200:
+            return res.json().get("data", {})
+        return {}
 
 
     def create_worker_pass(self, work_permit_id: str, worker_name: str) -> dict:

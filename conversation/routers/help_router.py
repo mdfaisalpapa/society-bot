@@ -6,7 +6,15 @@ class HelpRouter:
 
     def handle(self, platform, chat_id, text, message, current_session, active_profile):
         
-        # 1. Show the Main Help Menu
+        # 👇 GLOBAL GATEKEEPER
+        if text and str(text).startswith("/help_"):
+            if not active_profile:
+                from services.messenger import Messenger
+                Messenger.send(platform, chat_id, "❌ Profile not found. Please register to access the Help Center.")
+                return True
+
+        # ... (Your existing help routing logic continues below) ...
+        # # 1. Show the Main Help Menu
         if text == "/help_menu":
             self.menu.show_help_menu(platform, chat_id)
             return True

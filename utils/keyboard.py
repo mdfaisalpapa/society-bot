@@ -148,6 +148,7 @@ class KeyboardBuilder:
             grid.extend([
                 [{"text": "🎫 Pre-Approve Visitor", "callback_data": "/invite"}, {"text": "📋 Visitor History", "callback_data": "/history"}],
                 [{"text": "🛠️ Raise Ticket", "callback_data": "/raise_ticket"}, {"text": "🔍 My Tickets", "callback_data": "/my_tickets"}],
+                [{"text": "🚗 My Vehicles", "callback_data": "/my_vehicles"}],
                 [{"text": "👨‍👩‍👧‍👦 Family", "callback_data": "/family"}, {"text": "🧹 Staff", "callback_data": "/staff"}]
             ])
             
@@ -654,3 +655,59 @@ class KeyboardBuilder:
         # 👇 FIX: Use the dynamic callback to return to the flat's ticket list
         grid.append([{"text": "🔙 Back", "callback_data": back_callback}])
         return grid
+
+    @staticmethod
+    def aoa_wp_list_grid(permits: list, current_status: str) -> list:
+        grid = []
+        
+        # Toggle Button at the top
+        if current_status == "Pending":
+            grid.append([{"text": "🔄 View APPROVED Permits", "callback_data": "/aoa_wp_list_Approved"}])
+        else:
+            grid.append([{"text": "🔄 View PENDING Permits", "callback_data": "/aoa_wp_list_Pending"}])
+            
+        # Permit List
+        for p in permits:
+            btn_text = f"🏠 {p.get('flat_number')} | {p.get('contractor_name')}"
+            grid.append([{"text": btn_text, "callback_data": f"/aoa_wpview_{p.get('name')}"}])
+            
+        grid.append([{"text": "🔙 Back to AOA Portal", "callback_data": "/portal_aoa"}])
+        return grid
+        
+    @staticmethod
+    def aoa_wp_action_grid(permit_id: str, current_status: str) -> list:
+        grid = []
+        
+        # Render actions based on status
+        if current_status == "Pending":
+            grid.append([
+                {"text": "✅ Approve", "callback_data": f"/aoa_wpact_{permit_id}_Approved"},
+                {"text": "❌ Reject", "callback_data": f"/aoa_wpact_{permit_id}_Rejected"}
+            ])
+        elif current_status == "Approved":
+            grid.append([
+                {"text": "⏪ Revert to Pending", "callback_data": f"/aoa_wpact_{permit_id}_Pending"}
+            ])
+            
+        # Dynamic back button
+        grid.append([{"text": "🔙 Back to List", "callback_data": f"/aoa_wp_list_{current_status}"}])
+        return grid
+
+    @staticmethod
+    def resident_vehicles_grid() -> list:
+        return [
+            [{"text": "➕ Add New Vehicle", "callback_data": "/add_vehicle"}],
+            [{"text": "🔙 Back to Portal", "callback_data": "/portal_resident"}]
+        ]
+
+    @staticmethod
+    def vehicle_type_grid() -> list:
+        # Fetch options dynamically from ERPNext, with a fallback list just in case
+        options = KeyboardBuilder._fetch_options("Resident Vehicle", "vehicle_type", ["Car", "Bike", "Bicycle", "Other"])
+        
+        # Use the existing dynamic grid builder to format the buttons
+        return KeyboardBuilder.dynamic_filter_grid(
+            options, 
+            "/vtype_", 
+            back_button=("❌ Cancel", "/my_vehicles")
+        )

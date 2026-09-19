@@ -35,26 +35,31 @@ class ProfileController:
             email = "N/A"
             display_role = "Family Member"
             
+        # 🛡️ TELEGRAM MARKDOWN FIX: Escape underscores so the API doesn't crash
+        safe_name = str(name).replace("_", "\\_") if name else 'Not set'
+        safe_email = str(email).replace("_", "\\_") if email else 'Not set'
+        safe_tax = str(tax_display).replace("_", "\\_")
+        safe_eb = str(profile.eb_service_no).replace("_", "\\_") if profile.eb_service_no else 'Not set'
+            
         text = (
             f"🏠 *My Profile*\n\n"
             f"🏢 *Flat:* {profile.flat_number}\n"
             f"🧑‍💼 *Role:* {display_role}\n"
-            f"📛 *Name:* {name or 'Not set'}\n"
+            f"📛 *Name:* {safe_name}\n"
             f"📞 *Phone:* {phone or 'Not set'}\n"
-            f"✉️ *Email:* {email or 'Not set'}\n"
+            f"✉️ *Email:* {safe_email}\n"
             f"🆔 *CGEWHO Reg No:* `{cgewho_reg}`\n" 
             f"🚗 *Parking:* {profile.parking_slot or 'Not set'}\n"
-            f"⚡ *EB Service No:* {profile.eb_service_no or 'Not set'}\n" 
+            f"⚡ *EB Service No:* {safe_eb}\n" 
         )
         
-        # 👇 NEW: Append Property Tax exclusively for the Owner
         if is_owner:
-            text += f"📜 *Property Tax No:* {tax_display}\n"
+            text += f"📜 *Property Tax No:* {safe_tax}\n"
         
         # 👇 NEW: Display the Verification Status
         # Note: We use 'registration_status' because that is the field we update in ERPNext
         status = getattr(profile, 'owner_status', 'Unverified') 
-        verified_statuses = ["Verified", "Verified by Bot", "Verified Physically"]
+        verified_statuses = ["Verified", "Verified by Bot", "Verified Physically", "Verified with CGEWHO Data"]
         
         # Add visual indicators for the status
         if status in verified_statuses:

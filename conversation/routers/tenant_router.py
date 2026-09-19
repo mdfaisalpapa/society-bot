@@ -22,17 +22,26 @@ class TenantRouter:
                     self.controller.handle_document_upload(platform, chat_id, active_profile.flat_number, message, current_session)
                 return True
 
-        # THE BOUNCER: Block manual typing for non-owners
-        management_commands = [
+        # 👇 GLOBAL GATEKEEPER: Block non-owners from Tenant Management
+        owner_commands = [
             "/tenant", "/edit_tenant_phone", "/edit_tenant_email", 
             "/extend_tenant", "/deactivate_tenant", "/previous_tenants", 
             "/reactivate_tenant", "/add_tenant"
         ]
         
-        if text in management_commands:
-            if not is_owner:
+        # Check direct commands
+        if text in owner_commands:
+            if getattr(active_profile, 'role', '') != "Owner":
                 from services.messenger import Messenger
                 Messenger.send(platform, chat_id, "❌ Access Denied: Only Flat Owners can access tenant management.")
+                return True
+                
+        # Check active wizard sessions
+        if current_session and current_session.get("module") in ["add_tenant", "edit_tenant"]:
+            if getattr(active_profile, 'role', '') != "Owner":
+                from services.messenger import Messenger
+                Messenger.send(platform, chat_id, "❌ Access Denied: Only Flat Owners can edit tenants.")
+                self.session.clear_session(chat_id)
                 return True
         # 3. Process commands for authorized owners
         if text == "/tenant":
