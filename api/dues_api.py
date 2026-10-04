@@ -1,14 +1,17 @@
-import requests
 import json
 
 class DuesService:
-    def __init__(self, base_client):
-        self.headers = base_client.headers
-        self.base_url = base_client.base_url
+    def __init__(self, erp_client):
+        self.erp = erp_client
 
     def get_outstanding_dues(self, flat_number: str) -> float:
-        params = {"filters": json.dumps([["customer", "=", flat_number.strip().upper()], ["docstatus", "=", 1], ["outstanding_amount", ">", 0]]), "fields": '["outstanding_amount"]'}
-        res = requests.get(f"{self.base_url}/Sales Invoice", headers=self.headers, params=params)
-        if res.status_code == 200:
-            return sum(float(inv.get("outstanding_amount", 0)) for inv in res.json().get("data", []))
+        filters = json.dumps([
+            ["customer", "=", flat_number.strip().upper()], 
+            ["docstatus", "=", 1], 
+            ["outstanding_amount", ">", 0]
+        ])
+        res = self.erp.get_list("Sales Invoice", filters=filters, fields='["outstanding_amount"]')
+        
+        if isinstance(res, list):
+            return sum(float(inv.get("outstanding_amount", 0)) for inv in res)
         return 0.0

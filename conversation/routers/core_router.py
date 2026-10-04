@@ -161,13 +161,7 @@ class CoreRouter:
                     if active_profile.role == "Owner": self.profile.view_my_deed(platform, chat_id, active_profile.flat_number)
             return True
 # 3. Utilities (Notices, Dues, Facility)
-        if text == "/notices":
-            notices = self.erp.get_active_notices()
-            reply = "📋 *Notice Board & Circulars*\n\n" + "".join([f"🗓️ _{n['date']}_ \n*📌 {n['title']}*\n{n['content']}\n\n--- \n\n" for n in notices]) if notices else "📋 *Notice Board*\n\nNo active announcements at this time."
-            # 👇 UPDATED BACK BUTTON
-            Messenger.send(platform, chat_id, reply, inline_keyboard=[[{"text": "🔙 Back to Resident Portal", "callback_data": "/portal_resident"}]])
-            return True
-            
+              
         if text == "/dues":
             if not active_profile: 
                 Messenger.send(platform, chat_id, "❌ Profile not found.")

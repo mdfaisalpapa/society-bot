@@ -1,12 +1,15 @@
-import requests
 import json
 
 class GuardService:
-    def __init__(self, base_client):
-        self.headers = base_client.headers
-        self.base_url = base_client.base_url
+    def __init__(self, erp_client):
+        self.erp = erp_client
 
     def is_authorized_guard(self, chat_id: str, platform: str) -> bool:
-        params = {"filters": json.dumps([["messenger_id", "=", chat_id], ["platform", "=", platform.capitalize()], ["is_active", "=", 1]])}
-        res = requests.get(f"{self.base_url}/Authorized Bot Device", headers=self.headers, params=params)
-        return len(res.json().get("data", [])) > 0 if res.status_code == 200 else False
+        filters = json.dumps([
+            ["messenger_id", "=", chat_id], 
+            ["platform", "=", platform.capitalize()], 
+            ["is_active", "=", 1]
+        ])
+        # generic get_list handles the requests, headers, and error logging
+        res = self.erp.get_list("Authorized Bot Device", filters=filters)
+        return len(res) > 0 if isinstance(res, list) else False

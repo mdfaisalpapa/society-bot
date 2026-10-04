@@ -21,6 +21,7 @@ from controllers.family_controller import FamilyController
 from controllers.work_permit_controller import WorkPermitController
 from controllers.admin_controller import AdminController
 from controllers.vehicle_controller import VehicleController
+from controllers.notice_controller import NoticeController
 
 # Routers
 from conversation.routers.guard_router import GuardRouter
@@ -35,6 +36,8 @@ from conversation.routers.work_permit_router import WorkPermitRouter
 from conversation.routers.admin_router import AdminRouter
 from conversation.routers.help_router import HelpRouter  # 👈 ADD THIS
 from conversation.routers.vehicle_router import VehicleRouter
+from conversation.routers.notice_router import NoticeRouter
+
 class ConversationEngine:
     def __init__(self):
         self.session_manager = SessionManager()
@@ -56,6 +59,7 @@ class ConversationEngine:
         #self.admin_controller = AdminController(self.admin_api, self.session_manager)
         self.admin_controller = AdminController(self.erp_client, self.session_manager)
         self.vehicle_controller = VehicleController(self.erp_client, self.session_manager) # NEW
+        self.notice_controller = NoticeController(self.erp_client, self.session_manager)
 
         
         # Initialize Routers
@@ -72,6 +76,7 @@ class ConversationEngine:
         self.work_permit_router = WorkPermitRouter(self.work_permit_controller, self.session_manager)
         self.admin_router = AdminRouter(self.admin_controller)        
         self.vehicle_router = VehicleRouter(self.vehicle_controller) # NEW
+        self.notice_router = NoticeRouter(self.notice_controller)
         
 
         self.core_router = CoreRouter(
@@ -91,6 +96,7 @@ class ConversationEngine:
             self.maintenance_router,
             self.vehicle_router, # NEW
             self.admin_router,
+            self.notice_router, # <--- NEW ROUTER
             self.work_permit_router,
             self.guard_router,
             self.visitor_router
@@ -151,7 +157,7 @@ class ConversationEngine:
                 app_logger.info(f"Silently patched telegram_user_id for {chat_id} to '{text_username}'")
         
         # ==========================================
-        exempt_starts = ("/v", "/cat_", "/fam_", "/wp_", "/addworker_", "/viol_", "/admin_", "/vtype_", "/reg_role_")
+        exempt_starts = ("/v", "/cat_", "/fam_", "/wp_", "/addworker_", "/viol_", "/admin_", "/vtype_", "/reg_role_","/aoa_","/disable_notice_","/enable_notice_","/res_npage_")
         
         exempt_exact = [
             "/rel_Tenant", "/rel_Caretaker", "/rel_Company Lease", "/rel_Guest House", 

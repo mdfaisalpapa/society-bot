@@ -93,6 +93,8 @@ class AdminRouter:
         # ==========================================
         # Step 1 - Open Status Filters
         if text == "/admin_tickets":
+            # 🧠 Save the Admin Portal as the back route
+            self.controller.session.update_session(chat_id, module="admin", step="tickets", data={"back_route": "/portal_admin"})
             self.controller.show_ticket_status_filters(platform, chat_id)
             return True
         # 👇 NEW: Intercept PDF Download Request

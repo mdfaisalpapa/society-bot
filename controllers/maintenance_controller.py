@@ -175,10 +175,20 @@ class MaintenanceController:
 
 
     def show_active_tickets(self, platform: str, chat_id: str, profile: ResidentProfile, offset: int = 0, status_filter: str = "Open"):
+        
+        # 🧠 MEMORY: Save this exact pagination page and status so the Back button knows where to return
+        self.session.update_session(chat_id, module="maintenance", step="viewing_list", data={"back_route": f"/my_tickets_{offset}_{status_filter}"})
+        
+        # Fetch the tickets cleanly
         tickets = self.erp.get_user_tickets(profile.flat_number, offset=offset, status_filter=status_filter)
         
-        # Build 2x5 grid (5 rows, 2 columns = 10 items max)
-        Messenger.send(platform, chat_id, f"Showing *{status_filter}* tickets (Page {offset//10 + 1}):", inline_keyboard=KeyboardBuilder.maintenance_active_tickets_grid(tickets, offset, status_filter))
+        # Render the standard grid
+        Messenger.send(
+            platform, 
+            chat_id, 
+            f"Showing *{status_filter}* tickets (Page {offset//10 + 1}):", 
+            inline_keyboard=KeyboardBuilder.maintenance_active_tickets_grid(tickets, offset, status_filter)
+        )
     def view_ticket(self, platform: str, chat_id: str, ticket_name: str, active_profile=None):
         """Shows ticket details and builds dynamic buttons for Admins and Residents."""
         ticket = self.erp.get_ticket_details(ticket_name)
@@ -186,30 +196,47 @@ class MaintenanceController:
             Messenger.send(platform, chat_id, "❌ Error loading ticket details.")
             return
 
+        # --- 🛡️ ROLE & PERMISSION ENGINE ---
+        staff_role = getattr(active_profile, 'staff_role', '') if active_profile else ''
         role = getattr(active_profile, 'role', '') if active_profile else ''
-        is_admin = role in ["Office Admin", "Estate Manager"]
         
-        # 🛡️ Fix 1: Safely grab the description and escape any underscores to prevent Telegram crashes
-        raw_desc = ticket.get('description') or "No description provided."
-        safe_desc = str(raw_desc).replace("_", "\\_")
+        is_admin = staff_role in ["Office Admin", "Estate Manager"] or role in ["Office Admin", "Estate Manager"]
+        is_aoa = getattr(active_profile, 'is_aoa_member', False)
+        is_own_ticket = (ticket.get('resident') == getattr(active_profile, 'flat_number', ''))
+        
+        # They are Read-Only if they are AOA, NOT an Admin, and looking at someone else's ticket.
+        is_read_only = True if (is_aoa and not is_admin and not is_own_ticket) else False
+        # -----------------------------------
 
-        reply = f"🎫 *Ticket:* {ticket.get('name')}\n"
-        if is_admin:
-            reply += f"🏠 *Flat:* {ticket.get('resident')}\n"
-            
+        raw_desc = str(ticket.get('description') or "No description provided.")
+        safe_desc = raw_desc.replace("_", "-").replace("*", "-").replace("`", "'")
+        
+        raw_date = str(ticket.get('creation') or "Unknown")
+        formatted_date = raw_date[:10] if len(raw_date) >= 10 else raw_date
+
+        reply = f"🏠 *Flat:* {ticket.get('resident', 'Unknown')}\n"
+        reply += f"📂 *Category:* {ticket.get('category', 'Uncategorized')}\n"
+        reply += f"📅 *Date of Opening:* {formatted_date}\n\n"
+        
+        reply += f"🎫 *Ticket:* {ticket.get('name')}\n"
         reply += f"📌 *Status:* {ticket.get('status')}\n"
-        reply += f"📝 *Description:* {safe_desc}\n"
+        reply += f"📝 *Description:*\n{safe_desc}\n"
         
         if ticket.get('resolution_remarks'):
-            # Safely escape remarks too!
-            safe_remarks = str(ticket.get('resolution_remarks')).replace("_", "\\_")
-            reply += f"💬 *Remarks:*\n{safe_remarks}\n"
+            raw_remarks = str(ticket.get('resolution_remarks'))
+            safe_remarks = raw_remarks.replace("_", "-").replace("*", "-").replace("`", "'")
+            reply += f"\n💬 *Remarks:*\n{safe_remarks}\n"
         
-        # 🛡️ Fix 2: Add "or []" to prevent a NoneType crash if a ticket has no attachments
         attachments = self.erp.get_attachments("Maintenance Ticket", ticket_name) or []
         
-        Messenger.send(platform, chat_id, reply, inline_keyboard=KeyboardBuilder.maintenance_ticket_view_grid(ticket_name, is_admin, ticket.get('status'), attachments))
-
+        # 👇 Pass the new is_read_only flag to the keyboard generator
+        grid = KeyboardBuilder.maintenance_ticket_view_grid(ticket_name, is_admin, ticket.get('status'), attachments, is_read_only)
+        
+        # 🧠 DYNAMIC BACK BUTTON: Retrieve memory and cleanly apply it
+        session_data = self.session.get_session(chat_id).get("data", {})
+        grid = KeyboardBuilder.apply_memory_back(grid, session_data.get("back_route"))
+        
+        Messenger.send(platform, chat_id, reply, inline_keyboard=grid)
     def trigger_upload_prompt(self, platform: str, chat_id: str, ticket_name: str):
         """Starts a fresh upload batch allowing 3 photos."""
         
@@ -341,161 +368,3 @@ class MaintenanceController:
             Messenger.send(platform, chat_id, msg, grid=grid)
         else:
             Messenger.send(platform, chat_id, "❌ Failed to update the ticket.")
-
-    # ==========================================
-    # AOA TICKET MONITOR METHODS
-    # ==========================================
-
-    def aoa_show_monitor_menu(self, platform: str, chat_id: str, profile: ResidentProfile, status_filter: str):
-        # 1. Fetch tickets to calculate unique flats per category
-        erp_statuses = ["Pending", "In Progress", "Open", "Assigned"] if status_filter == "open" else ["Resolved", "Closed"]
-        filters = json.dumps([["status", "in", erp_statuses]])
-        fields = json.dumps(["category", "resident"])
-        
-        # Increase limit if your society has high ticket volumes
-        response = self.erp.get_list("Maintenance Ticket", filters=filters, fields=fields, limit=1000)
-        tickets = response.get("data", []) if isinstance(response, dict) else response
-
-        # 2. Count UNIQUE flats per category
-        category_flat_map = {}
-        for t in tickets:
-            cat = t.get("category")
-            flat = t.get("resident")
-            if cat and flat:
-                if cat not in category_flat_map:
-                    category_flat_map[cat] = set()
-                category_flat_map[cat].add(flat)
-
-        # Create a dictionary like: {"Plumbing": 3, "Electrical": 1}
-        category_counts = {cat: len(flats) for cat, flats in category_flat_map.items()}
-
-        display_status = "🟢 OPEN" if status_filter == "open" else "🔴 CLOSED"
-        text = f"🛡️ **AoA Ticket Monitor**\n\nCurrently viewing: **{display_status}** tickets.\nSelect a category below to filter:"
-        
-        # 3. Pass the counts to the keyboard builder
-        Messenger.send(platform, chat_id, text, inline_keyboard=KeyboardBuilder.aoa_monitor_category_grid(status_filter, category_counts))
-    def aoa_show_ticket_list(self, platform: str, chat_id: str, profile: ResidentProfile, status_filter: str, category: str):
-        """When a category is clicked, show the list of flats having tickets in this category (oldest first)."""
-        erp_statuses = ["Pending", "In Progress", "Open", "Assigned"] if status_filter == "open" else ["Resolved", "Closed"]
-        filters = json.dumps([["category", "=", category], ["status", "in", erp_statuses]])
-        fields = json.dumps(["resident", "creation"])
-        
-        # Fetch tickets sorted by creation ascending to get flats in chronological order
-        response = self.erp.get_list("Maintenance Ticket", filters=filters, fields=fields, order_by="creation asc", limit=200)
-        tickets = response.get("data", []) if isinstance(response, dict) else response
-        
-        # Extract unique flats while preserving chronological order
-        flats = []
-        seen = set()
-        for t in tickets:
-            flat = t.get("resident")
-            if flat and flat not in seen:
-                seen.add(flat)
-                flats.append(flat)
-        
-        if not flats:
-            text = f"🛡️ **{category} Tickets ({status_filter.upper()})**\n\nThere are no {status_filter.upper()} tickets found in this category."
-            keyboard = [[{"text": "🔙 Back to Categories", "callback_data": f"/aoa_monitor_menu_{status_filter}"}]]
-            Messenger.send(platform, chat_id, text, inline_keyboard=keyboard)
-            return
-            
-        text = f"🛡️ **{category} Tickets ({status_filter.upper()})**\n\nSelect a flat to view its complaints in this category (oldest first):"
-        Messenger.send(platform, chat_id, text, inline_keyboard=KeyboardBuilder.aoa_category_flat_list_grid(flats, status_filter, category))
-    def aoa_show_flat_tickets(self, platform: str, chat_id: str, profile: ResidentProfile, status_filter: str, flat_number: str):
-        erp_statuses = ["Pending", "In Progress", "Open", "Assigned"] if status_filter == "open" else ["Resolved", "Closed"]
-        filters = json.dumps([["resident", "=", flat_number], ["status", "in", erp_statuses]])
-        
-        # 👇 Added "creation" to fields
-        fields = json.dumps(["name", "resident", "status", "creation"])
-        
-        response = self.erp.get_list("Maintenance Ticket", filters=filters, fields=fields, order_by="creation asc")
-        tickets = response.get("data", []) if isinstance(response, dict) else response
-        
-        if not tickets:
-            text = f"🏢 **Flat: {flat_number}**\n\nThere are no {status_filter.upper()} tickets found for this flat."
-        else:
-            text = f"🏢 **Flat: {flat_number} Tickets ({status_filter.upper()})**\n\nSelect a ticket to view details:"
-            
-        Messenger.send(platform, chat_id, text, inline_keyboard=KeyboardBuilder.aoa_ticket_list_grid(tickets, status_filter, f"Flat {flat_number}"))
-
-    def aoa_view_ticket(self, platform: str, chat_id: str, ticket_name: str, profile: ResidentProfile):
-        ticket = self.erp.get_ticket_details(ticket_name)
-        if not ticket:
-            Messenger.send(platform, chat_id, "❌ Ticket not found.")
-            return
-
-        safe_desc = str(ticket.get('description', 'No description provided.')).replace('_', '\\_')
-        raw_creation = ticket.get('creation', '')
-        creation_date = raw_creation[:16] if raw_creation and len(raw_creation) >= 16 else (raw_creation or 'Unknown')
-        
-        text = (
-            f"🛡️ **AoA Ticket Dashboard**\n\n"
-            f"🏷️ **ID:** `{ticket.get('name')}`\n"
-            f"🏢 **Flat:** `{ticket.get('resident')}`\n"
-            f"📅 **Date Raised:** `{creation_date}`\n"
-            f"📊 **Status:** {ticket.get('status')}\n"
-            f"📂 **Category:** {ticket.get('category')}\n\n"
-            f"📝 **Description:**\n_{safe_desc}_"
-        )
-        
-        # 👇 FIX: Determine the correct status filter (open/closed) based on the ERP status
-        current_status = ticket.get('status')
-        status_filter = "closed" if current_status in ["Resolved", "Closed"] else "open"
-        flat_number = ticket.get('resident')
-        category = ticket.get('category')
-        
-        # Build the exact route back to the flats ticket list!
-        back_link = f"/aoa_cat_flat_tkt_{status_filter}_{flat_number}_{category}"
-        
-        Messenger.send(
-            platform, 
-            chat_id, 
-            text, 
-            inline_keyboard=KeyboardBuilder.aoa_ticket_view_grid(ticket.get('name'), flat_number, current_status, back_link)
-        )
-
-    def aoa_show_flat_list(self, platform: str, chat_id: str, profile: ResidentProfile, status_filter: str):
-        """Fetches all tickets matching the status, orders them oldest first, and extracts unique flats."""
-        
-        erp_statuses = ["Pending", "In Progress", "Open", "Assigned"] if status_filter == "open" else ["Resolved", "Closed"]
-        filters = json.dumps([["status", "in", erp_statuses]])
-        fields = json.dumps(["resident", "creation"])
-        
-        # Fetch tickets sorted by creation ascending (oldest complaint first)
-        response = self.erp.get_list("Maintenance Ticket", filters=filters, fields=fields, order_by="creation asc", limit=200)
-        tickets = response.get("data", []) if isinstance(response, dict) else response
-        
-        # Extract unique flats while preserving chronological order
-        flats = []
-        seen = set()
-        for t in tickets:
-            flat = t.get("resident")
-            if flat and flat not in seen:
-                seen.add(flat)
-                flats.append(flat)
-        
-        if not flats:
-            Messenger.send(platform, chat_id, f"🏢 **Flats Filter**\n\nThere are no {status_filter.upper()} tickets found for any flat.")
-            return
-            
-        text = f"🏢 **Select Flat ({status_filter.upper()})**\n\nFlats are listed in ascending order of complaint date (oldest first):"
-        Messenger.send(platform, chat_id, text, inline_keyboard=KeyboardBuilder.aoa_flat_list_grid(flats, status_filter))
-
-    def aoa_show_category_flat_tickets(self, platform: str, chat_id: str, profile: ResidentProfile, status_filter: str, flat_number: str, category: str):
-        """Shows tickets for a specific flat filtered by a specific category."""
-        
-        erp_statuses = ["Pending", "In Progress", "Open", "Assigned"] if status_filter == "open" else ["Resolved", "Closed"]
-        filters = json.dumps([["category", "=", category], ["resident", "=", flat_number], ["status", "in", erp_statuses]])
-        fields = json.dumps(["name", "resident", "status", "creation"])
-        
-        response = self.erp.get_list("Maintenance Ticket", filters=filters, fields=fields, order_by="creation asc")
-        tickets = response.get("data", []) if isinstance(response, dict) else response
-        
-        if not tickets:
-            text = f"🏢 **{category} | Flat: {flat_number}**\n\nThere are no {status_filter.upper()} tickets for this flat in this category."
-        else:
-            text = f"🏢 **{category} | Flat: {flat_number} ({status_filter.upper()})**\n\nSelect a ticket to view details:"
-            
-        # 👇 FIX 3: Tell the ticket list exactly where its "Back" button should go!
-        back_target = f"/aoa_list_{status_filter}_{category}"
-        Messenger.send(platform, chat_id, text, inline_keyboard=KeyboardBuilder.aoa_ticket_list_grid(tickets, status_filter, back_callback=back_target))

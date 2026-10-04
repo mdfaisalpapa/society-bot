@@ -147,13 +147,10 @@ class MenuController:
         keyboard = [
             [{"text": "🛡️ Monitor Maintenance Tickets", "callback_data": "/aoa_monitor_menu_open"}],
             [{"text": "👷 Manage Work Permits", "callback_data": "/aoa_wp_list_Pending"}],
+            [{"text": "📢 Notice Board", "callback_data": "/aoa_notice_menu"}], # 👈 Points to sub-menu
             [{"text": "🔙 Back to Main Hub", "callback_data": "/menu"}]
         ]
-        
-        text = ("👔 *AoA Committee Portal*\n\n"
-                "Welcome to the Association Management dashboard. "
-                "Select an administrative action below:")
-                
+        text = ("👔 *AoA Committee Portal*\n\nWelcome to the Association Management dashboard. Select an administrative action below:")
         Messenger.send(platform, chat_id, text, inline_keyboard=keyboard)
 
     def show_help_menu(self, platform, chat_id):

@@ -15,18 +15,26 @@ class AdminController:
     # ==========================================
     
     def show_ticket_status_filters(self, platform: str, chat_id: str):
-        Messenger.send(platform, chat_id, "🎫 *Ticket Management*\n\nSelect the status of the tickets you want to view:", inline_keyboard=KeyboardBuilder.admin_ticket_status_grid())
+        grid = KeyboardBuilder.admin_ticket_status_grid()
+        
+        # 🧠 DYNAMIC BACK BUTTON: Retrieve memory and cleanly apply it
+        session_data = self.session.get_session(chat_id).get("data", {})
+        grid = KeyboardBuilder.apply_memory_back(grid, session_data.get("back_route"))
+        
+        Messenger.send(platform, chat_id, "🎫 *Ticket Management*\n\nSelect the status of the tickets you want to view:", inline_keyboard=grid)
 
     def show_ticket_category_filters(self, platform: str, chat_id: str, status: str):
         Messenger.send(platform, chat_id, f"📂 *{status} Tickets*\n\nNow, select the category:", inline_keyboard=KeyboardBuilder.admin_ticket_category_grid(status))
 
     def list_tickets(self, platform: str, chat_id: str, status: str, category: str):
+        # 🧠 MEMORY: Save this exact category view so the Back button knows where to return
+        self.session.update_session(chat_id, module="admin", step="viewing_list", data={"back_route": f"/adm_tcat_{status}_{category}"})
+        
         Messenger.send(platform, chat_id, f"⏳ Fetching {status} tickets for {category}...")
         try:
             filters = json.dumps([["status", "=", status], ["category", "=", category]])
-            fields = '["name", "resident", "category", "description", "status"]'
+            fields = '["name", "resident", "category", "description", "status", "creation", "resolution_remarks"]'
             
-            # Replaced raw request with your generic get_list
             res = self.erp.get_list("Maintenance Ticket", filters=filters, fields=fields, order_by="creation asc")
             tickets = res.get("data", []) if isinstance(res, dict) else res
             
@@ -35,19 +43,38 @@ class AdminController:
                 return
 
             reply = f"🎫 *{status} Tickets - {category} ({len(tickets)})*\n\n"
+            
             for t in tickets:
                 raw_desc = str(t.get('description') or "No description provided.")
                 safe_desc = raw_desc.replace("_", "-").replace("*", "-").replace("`", "'")
                 
-                desc = safe_desc[:40].replace('\n', ' ')
-                if len(safe_desc) > 40: desc += "..."
-                    
-                resident = t.get('resident') or "Unknown"
-                name = t.get('name') or "Unknown ID"
+                raw_date = str(t.get('creation') or "Unknown")
+                formatted_date = raw_date[:10] if len(raw_date) >= 10 else raw_date
                 
-                reply += f"🎫 *{name}* (Flat: {resident})\n📝 {desc}\n\n"
+                reply += f"🏠 *Flat:* {t.get('resident', 'Unknown')}\n"
+                reply += f"📂 *Category:* {t.get('category', 'Uncategorized')}\n"
+                reply += f"📅 *Date of Opening:* {formatted_date}\n\n"
                 
-            Messenger.send(platform, chat_id, reply, inline_keyboard=KeyboardBuilder.admin_ticket_list_grid(tickets, status))
+                reply += f"🎫 *Ticket:* {t.get('name')}\n"
+                reply += f"📌 *Status:* {t.get('status')}\n"
+                reply += f"📝 *Description:*\n{safe_desc}\n"
+                
+                if t.get('resolution_remarks'):
+                    raw_remarks = str(t.get('resolution_remarks'))
+                    safe_remarks = raw_remarks.replace("_", "-").replace("*", "-").replace("`", "'")
+                    reply += f"\n💬 *Remarks:*\n{safe_remarks}\n"
+                
+                reply += "\n───────────────\n\n"
+                
+                # 🛡️ SAFETY CHUNKER
+                if len(reply) > 3500:
+                    Messenger.send(platform, chat_id, reply)
+                    reply = ""
+                
+            if reply.strip():
+                Messenger.send(platform, chat_id, reply, inline_keyboard=KeyboardBuilder.admin_ticket_list_grid(tickets, status))
+            else:
+                Messenger.send(platform, chat_id, "👇 Select a ticket to manage:", inline_keyboard=KeyboardBuilder.admin_ticket_list_grid(tickets, status))
             
         except Exception as e:
             from utils.logger import app_logger

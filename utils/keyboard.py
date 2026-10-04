@@ -93,13 +93,12 @@ class KeyboardBuilder:
 
     @staticmethod
     def admin_ticket_status_grid() -> list:
-        # Fetch the options dynamically as you were doing before
-        options = KeyboardBuilder._fetch_options("Maintenance Ticket", "status", ["Open", "Assigned", "Resolved", "Closed"])
-        grid = KeyboardBuilder.dynamic_filter_grid(options, "/adm_tstat_", back_button=("🔙 Admin Menu", "/menu"))
+        options = ["Open", "Assigned", "Resolved", "Closed"]
         
-        # 👇 NEW: Insert the PDF download button at the very top (index 0)
+        # 👇 FIX: Changed text to a generic "Back to Portal"
+        grid = KeyboardBuilder.dynamic_filter_grid(options, "/adm_tstat_", back_button=("🔙 Back to Portal", "/menu"))
+        
         grid.insert(0, [{"text": "📥 Download Open Tickets (PDF)", "callback_data": "/adm_tkt_pdf"}])
-        
         return grid
 
     @staticmethod
@@ -717,3 +716,17 @@ class KeyboardBuilder:
             "/vtype_", 
             back_button=("❌ Cancel", "/my_vehicles")
         )
+
+    @staticmethod
+    def apply_memory_back(grid: list, back_route: str) -> list:
+        """Finds the back button in a grid and dynamically rewires it to the memory route."""
+        if not back_route:
+            return grid
+            
+        # Search backwards since Back buttons are usually at the bottom
+        for row in reversed(grid):
+            for button in row:
+                if "Back" in button.get("text", "") or "🔙" in button.get("text", ""):
+                    button["callback_data"] = back_route
+                    return grid 
+        return grid

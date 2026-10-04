@@ -142,9 +142,14 @@ class ERPClient(BaseERPClient):
         return self.work_permit.get_all_active_violations()
     def get_violation_details(self, violation_id):
         return self.work_permit.get_violation_details(violation_id)
-    # --- Facility, Notices & Dues ---
+    # --- Facility---
     def book_facility(self, facility, flat, date_str): return self.facility.book_facility(facility, flat, date_str)
-    def get_active_notices(self): return self.notice.get_active_notices()
+    # --- Notices & Dues ---
+    def get_active_notices(self, limit_start=0): return self.notice.get_notices(is_active=1, limit_start=limit_start)
+    def get_notices(self, is_active: int, limit_start: int = 0): return self.notice.get_notices(is_active, limit_start)
+    def create_notice(self, title: str, content: str): return self.notice.create_notice(title, content)
+    def disable_notice(self, notice_name: str): return self.notice.disable_notice(notice_name)
+    def enable_notice(self, notice_name: str): return self.notice.enable_notice(notice_name)
     def get_outstanding_dues(self, flat_number): return self.dues.get_outstanding_dues(flat_number)
 
     # --- Base Files Wrappers ---
@@ -152,22 +157,18 @@ class ERPClient(BaseERPClient):
     def get_attachments(self, doctype, docname): return self.file.get_attachments(doctype, docname)
     def download_file(self, file_name): return self.file.download_file(file_name)
 
-    # In api/erp.py inside your ERPClient class
-    # 👇 ADDED: order_by parameter (defaults to None)
-    def get_list(self, doctype: str, filters: str = None, fields: str = None, limit: int = 100, order_by: str = None) -> dict:
-        """Generic method to fetch a list of records from any ERPNext DocType."""
+    # 👇 ADDED: limit_start parameter for pagination
+    def get_list(self, doctype: str, filters: str = None, fields: str = None, limit: int = 100, order_by: str = None, limit_start: int = 0) -> dict:
+        """Generic method to fetch a list of records with pagination support."""
         import requests
         
         url = f"{self.base_url}/{doctype}"
-        params = {"limit_page_length": limit}
+        # 👇 ADDED: limit_start for Next/Prev page support
+        params = {"limit_page_length": limit, "limit_start": limit_start}
         
-        if filters:
-            params["filters"] = filters
-        if fields:
-            params["fields"] = fields
-        # 👇 NEW: Add the sorting parameter if provided
-        if order_by:
-            params["order_by"] = order_by
+        if filters: params["filters"] = filters
+        if fields: params["fields"] = fields
+        if order_by: params["order_by"] = order_by
             
         try:
             response = requests.get(url, headers=self.headers, params=params)
@@ -182,10 +183,10 @@ class ERPClient(BaseERPClient):
             app_logger.error(f"Request failed for {doctype}: {str(e)}")
             return {}
 
-
     def create_document(self, doctype: str, data: dict) -> dict:
         """Generic method to create a new record in any ERPNext DocType."""
         import requests
+        
         url = f"{self.base_url}/{doctype}"
         try:
             response = requests.post(url, headers=self.headers, json=data)
@@ -193,7 +194,7 @@ class ERPClient(BaseERPClient):
                 return response.json().get("data", {})
             else:
                 from utils.logger import app_logger
-                app_logger.error(f"Failed to create {doctype}: {response.text}")
+                app_logger.error(f"Failed to create {doctype} ({response.status_code}): {response.text}")
                 return {}
         except Exception as e:
             return {}

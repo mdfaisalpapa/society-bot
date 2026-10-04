@@ -1,50 +1,75 @@
-import requests
 import json
 
 class MaintenanceService:
-    def __init__(self, base_client, file_service):
-        self.headers = base_client.headers
-        self.base_url = base_client.base_url
+    def __init__(self, erp_client, file_service):
+        self.erp = erp_client
         self.file_service = file_service
 
     def create_maintenance_ticket(self, flat_number: str, category: str, description: str) -> str:
-        url = f"{self.base_url}/Maintenance Ticket"
         payload = {"resident": flat_number, "category": category, "description": description, "status": "Open"}
-        try:
-            response = requests.post(url, headers=self.headers, json=payload)
-            if response.status_code == 200:
-                return response.json().get("data", {}).get("name")
-            return None
-        except Exception:
-            return None
+        res = self.erp.create_document("Maintenance Ticket", payload)
+        
+        # Safely extract the newly created document name
+        return res.get("name") if isinstance(res, dict) else None
 
     def get_user_tickets(self, flat_number: str, offset: int = 0, status_filter: str = "Open") -> list:
+        import json
+        import requests
+        from utils.logger import app_logger
         
-        # This single line handles both Handover and Routine phases permanently!
-        if status_filter == "Open":
-            status_criteria = ["Open", "Assigned", "Pending"]
+        clean_status = str(status_filter).strip().title()
+        if clean_status in ["Open", "Assigned", "Pending", "In Progress"]:
+            status_criteria = ["Open", "Assigned", "Pending", "In Progress"]
         else:
-            # Handles "Closed", "Resolved", or anything else you consider finished
             status_criteria = ["Resolved", "Closed"] 
-            
+        
+        safe_offset = int(offset) if offset else 0
+        
         params = {
-            "filters": json.dumps([["resident", "=", flat_number.strip().upper()], ["status", "in", status_criteria]]), 
-            "fields": json.dumps(["name", "status"]),
-            "order_by": "creation desc", # <--- Add this!
-            "limit_start": offset, 
+            "filters": json.dumps([
+                ["resident", "=", str(flat_number).strip().upper()], 
+                ["status", "in", status_criteria]
+            ]), 
+            "fields": '["name", "status"]',
+            "order_by": "creation desc",
+            "limit_start": safe_offset, 
             "limit_page_length": 10
         }
         
-        response = requests.get(f"{self.base_url}/Maintenance Ticket", headers=self.headers, params=params)
-        return response.json().get("data", []) if response.status_code == 200 else []
-
-    def get_ticket_details(self, ticket_name: str) -> dict:
+        # 🐛 API DIAGNOSTICS: Correctly referencing self.erp.base_url
+        app_logger.info(f"API: Sending Request to ERPNext -> {self.erp.base_url}/Maintenance Ticket")
+        app_logger.info(f"API: Params -> {params}")
+        
         try:
-            response = requests.get(f"{self.base_url}/Maintenance Ticket/{ticket_name}", headers=self.headers)
-            return response.json().get("data", {}) if response.status_code == 200 else {}
-        except:
-            return {}
+            # 🐛 API DIAGNOSTICS: Correctly referencing self.erp.headers and self.erp.base_url
+            response = requests.get(f"{self.erp.base_url}/Maintenance Ticket", headers=self.erp.headers, params=params)
+            
+            app_logger.info(f"API: ERPNext HTTP Status -> {response.status_code}")
+            app_logger.info(f"API: ERPNext Response Body -> {response.text}")
+            
+            if response.status_code == 200:
+                data = response.json().get("data", [])
+                return data if isinstance(data, list) else []
+            else:
+                return []
+                
+        except Exception as e:
+            app_logger.error(f"API CRASH in get_user_tickets: {str(e)}")
+            return []
+    def get_ticket_details(self, ticket_name: str) -> dict:
+        filters = json.dumps([["name", "=", ticket_name]])
+        res = self.erp.get_list("Maintenance Ticket", filters=filters, fields='["*"]')
+        
+        data = res.get("data", []) if isinstance(res, dict) else res
+        return data[0] if data else {}
 
     def upload_file_to_ticket(self, ticket_name: str, file_data: bytes) -> bool:
-        result = self.file_service.upload_file(doctype="Maintenance Ticket", docname=ticket_name, file_name="attachment.jpg", file_data=file_data, mime_type="image/jpeg", is_private=0)
+        result = self.file_service.upload_file(
+            doctype="Maintenance Ticket", 
+            docname=ticket_name, 
+            file_name="attachment.jpg", 
+            file_data=file_data, 
+            mime_type="image/jpeg", 
+            is_private=0
+        )
         return result.get("success", False)
