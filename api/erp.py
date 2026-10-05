@@ -12,6 +12,7 @@ from .staff_api import StaffService
 from .family_api import FamilyService  
 from .work_permit_api import WorkPermitService # ? NEW
 from api.vehicle_api import VehicleService
+from .board_resolution_api import BoardResolutionService
 
 class ERPClient(BaseERPClient):
     def __init__(self):
@@ -30,6 +31,7 @@ class ERPClient(BaseERPClient):
         self.family = FamilyService(self) 
         self.work_permit = WorkPermitService(self) # ? NEW
         self.vehicle = VehicleService(self)
+        self.board_resolution = BoardResolutionService(self)
 
     # --- Profile Wrappers ---
     def get_resident_profile(self, flat_number): return self.profile.get_resident_profile(flat_number)
@@ -260,3 +262,38 @@ class ERPClient(BaseERPClient):
         if res.status_code == 200 and res.json().get("data"):
             return res.json()["data"][0].get("device_role")
         return None
+
+    def get_document_full(self, doctype: str, docname: str) -> dict:
+        """Fetches a full document including child tables."""
+        import requests
+        url = f"{self.base_url}/{doctype}/{docname}"
+        try:
+            response = requests.get(url, headers=self.headers)
+            if response.status_code == 200:
+                return response.json().get("data", {})
+        except Exception:
+            pass
+        return {}
+
+    def sign_board_resolution(self, docname: str, member_name: str) -> bool:
+        """Appends the AOA member's signature to the signatories table."""
+        doc = self.get_document_full("Board Resolution", docname)
+        if not doc: 
+            return False
+            
+        signatories = doc.get("signatories", [])
+        
+        # Check if already signed to prevent duplicates
+        for sig in signatories:
+            # ⚠️ Note: Adjust "signatory_name" to match your exact field name inside the 'Resolution Signatory' child table.
+            if sig.get("signatory_name") == member_name or sig.get("member") == member_name:
+                return True
+                
+        # Append the new signature
+        signatories.append({
+            "signatory_name": member_name, 
+            "status": "Signed"
+        })
+        
+        return self.update_document("Board Resolution", docname, {"signatories": signatories})
+

@@ -147,7 +147,9 @@ class MenuController:
         keyboard = [
             [{"text": "🛡️ Monitor Maintenance Tickets", "callback_data": "/aoa_monitor_menu_open"}],
             [{"text": "👷 Manage Work Permits", "callback_data": "/aoa_wp_list_Pending"}],
-            [{"text": "📢 Notice Board", "callback_data": "/aoa_notice_menu"}], # 👈 Points to sub-menu
+            # 👇 NEW: Board Resolutions Button
+            [{"text": "📝 Board Resolutions", "callback_data": "/aoa_resolutions"}],
+            [{"text": "📢 Notice Board", "callback_data": "/aoa_notice_menu"}],
             [{"text": "🔙 Back to Main Hub", "callback_data": "/menu"}]
         ]
         text = ("👔 *AoA Committee Portal*\n\nWelcome to the Association Management dashboard. Select an administrative action below:")

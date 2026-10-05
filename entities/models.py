@@ -10,7 +10,8 @@ class ResidentProfile:
     owner_email: Optional[str] = None
     owner_status: Optional[str] = None 
     
-    # 👇 ADDED: To track if a file physically exists
+    linked_user: Optional[str] = None 
+    
     sale_deed: Optional[str] = None 
     CGEWHO_reg_no: Optional[str] = None    
     tenant_name: Optional[str] = None
@@ -19,10 +20,13 @@ class ResidentProfile:
     is_rented: bool = False
     telegram_chat_id: Optional[str] = None
     tenant_telegram_chat_id: Optional[str] = None
-    telegram_username: Optional[str] = None
+    
+    # 🛡️ SPLIT TELEGRAM USERNAMES
+    owner_telegram_username: Optional[str] = None
+    tenant_telegram_username: Optional[str] = None
+    
     parking_slot: Optional[str] = None
     
-    # Extended Tenant Details
     tenant_relationship: Optional[str] = None
     tenant_start_date: Optional[str] = None
     tenant_end_date: Optional[str] = None
@@ -32,11 +36,10 @@ class ResidentProfile:
     family_name: str = None
     family_phone: str = None
     eb_service_no: str = None 
-    ntfy_topic: str = None 
     is_aoa_member: bool = False 
     role: Optional[str] = None
-    staff_role: Optional[str] = None  # 👈 ADD THIS
-    staff_name: Optional[str] = None  # 👈 ADD THIS
+    staff_role: Optional[str] = None 
+    staff_name: Optional[str] = None 
     property_tax_no: Optional[str] = None
 
     @property
@@ -45,30 +48,41 @@ class ResidentProfile:
         
     @property
     def active_chat_id(self) -> Optional[str]:
-        return self.tenant_telegram_chat_id if self.is_rented else self.telegram_chat_id
+        if self.role == "Tenant": return self.tenant_telegram_chat_id
+        return self.telegram_chat_id
 
     @property
     def display_name(self) -> str:
-        return self.tenant_name if self.is_rented and self.tenant_name else self.owner_name
+        # 🛡️️ STRICT ROLE-BASED IDENTITY (Prevents Tenant Hijacking)
+        if self.role == "Tenant" and self.tenant_name:
+            return self.tenant_name
+        if self.role == "Family" and self.family_name:
+            return self.family_name
+        return self.owner_name or "Committee Member"
 
     @property
     def active_email(self) -> Optional[str]:
-        return self.tenant_email if self.is_rented else self.owner_email
+        if self.role == "Tenant": return self.tenant_email
+        return self.owner_email
 
     @property
     def active_phone(self) -> Optional[str]:
-        return self.tenant_phone if self.is_rented else self.owner_phone
+        if self.role == "Tenant": return self.tenant_phone
+        if self.role == "Family": return self.family_phone
+        return self.owner_phone
 
-    # ==========================================
-    # 🔐 STRICT VERIFICATION LOGIC
-    # ==========================================
+    @property
+    def telegram_username(self) -> Optional[str]:
+        # 🛡️ STRICT ROLE-BASED TELEGRAM USERNAME
+        if self.role == "Tenant": return self.tenant_telegram_username
+        return self.owner_telegram_username
+
     @property
     def active_registration_status(self) -> Optional[str]:
-        """Returns the registration status of whoever is currently occupying the flat."""
-        return self.tenant_status if self.is_rented else self.owner_status
+        if self.role == "Tenant": return self.tenant_status
+        return self.owner_status
         
     @property
     def is_verified(self) -> bool:
-        """Strictly checks if the resident's documents/identity are approved."""
         valid_statuses = ["Verified by Bot", "Verified Physically", "Verified"]
         return self.active_registration_status in valid_statuses

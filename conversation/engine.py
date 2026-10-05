@@ -22,6 +22,8 @@ from controllers.work_permit_controller import WorkPermitController
 from controllers.admin_controller import AdminController
 from controllers.vehicle_controller import VehicleController
 from controllers.notice_controller import NoticeController
+from controllers.board_resolution_controller import BoardResolutionController
+
 
 # Routers
 from conversation.routers.guard_router import GuardRouter
@@ -37,6 +39,7 @@ from conversation.routers.admin_router import AdminRouter
 from conversation.routers.help_router import HelpRouter  # 👈 ADD THIS
 from conversation.routers.vehicle_router import VehicleRouter
 from conversation.routers.notice_router import NoticeRouter
+from conversation.routers.board_resolution_router import BoardResolutionRouter
 
 class ConversationEngine:
     def __init__(self):
@@ -60,6 +63,7 @@ class ConversationEngine:
         self.admin_controller = AdminController(self.erp_client, self.session_manager)
         self.vehicle_controller = VehicleController(self.erp_client, self.session_manager) # NEW
         self.notice_controller = NoticeController(self.erp_client, self.session_manager)
+        self.board_res_controller = BoardResolutionController(self.erp_client, self.session_manager)
 
         
         # Initialize Routers
@@ -77,7 +81,7 @@ class ConversationEngine:
         self.admin_router = AdminRouter(self.admin_controller)        
         self.vehicle_router = VehicleRouter(self.vehicle_controller) # NEW
         self.notice_router = NoticeRouter(self.notice_controller)
-        
+        self.board_res_router = BoardResolutionRouter(self.board_res_controller)
 
         self.core_router = CoreRouter(
             self.erp_client, self.session_manager, 
@@ -95,6 +99,7 @@ class ConversationEngine:
             self.tenant_router,
             self.maintenance_router,
             self.vehicle_router, # NEW
+            self.board_res_router, # 👈 NEW ROUTER
             self.admin_router,
             self.notice_router, # <--- NEW ROUTER
             self.work_permit_router,
