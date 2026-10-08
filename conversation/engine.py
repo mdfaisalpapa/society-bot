@@ -162,7 +162,7 @@ class ConversationEngine:
                 app_logger.info(f"Silently patched telegram_user_id for {chat_id} to '{text_username}'")
         
         # ==========================================
-        exempt_starts = ("/v", "/cat_", "/fam_", "/wp_", "/addworker_", "/viol_", "/admin_", "/vtype_", "/reg_role_","/aoa_","/disable_notice_","/enable_notice_","/res_npage_")
+        exempt_starts = ("/v", "/cat_", "/fam_", "/wp_", "/addworker_", "/viol_", "/admin_", "/aoa_", "/disable_notice_", "/enable_notice_", "/res_npage_", "/dl_notice_", "/vnotice_")
         
         exempt_exact = [
             "/rel_Tenant", "/rel_Caretaker", "/rel_Company Lease", "/rel_Guest House", 

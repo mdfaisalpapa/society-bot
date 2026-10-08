@@ -38,6 +38,23 @@ class NoticeRouter:
                 notice_name = text.replace("/enable_notice_", "").replace('_', ' ')
                 self.controller.enable_notice(platform, chat_id, notice_name)
                 return True
+            # Catch individual notice selection (Ticket Style View)
+            if text.startswith("/view_notice_"):
+                notice_name = text.replace("/view_notice_", "").replace('_', ' ')
+                self.controller.view_notice(platform, chat_id, notice_name, active_profile)
+                return True
+# Catch individual notice selection (Detail View with Prev/Next)
+            if text.startswith("/vnotice_"):
+                parts = text.split("_")
+                notice_name = parts[2]
+                is_active = int(parts[3]) if len(parts) > 3 else 1
+                limit_start = int(parts[4]) if len(parts) > 4 else 0
+                self.controller.view_notice(platform, chat_id, notice_name, is_active=is_active, limit_start=limit_start, is_aoa=is_aoa)
+                return True
+            if text.startswith("/dl_notice_"):
+                notice_name = text.replace("/dl_notice_", "").replace('_', ' ')
+                self.controller.send_notice_attachment(platform, chat_id, notice_name)
+                return True
                 
             if text == "/aoa_skip_photo" and current_session.get("module") == "aoa_notice":
                 self.controller.show_preview(platform, chat_id, current_session)
@@ -50,6 +67,16 @@ class NoticeRouter:
         if text == "/notices":
             self.controller.show_notice_board(platform, chat_id, is_aoa=False, is_active=1, limit_start=0)
             return True
+# Catch individual notice selection (Detail View with Prev/Next)
+           # Catch individual notice selection (Detail View with Prev/Next)
+            if text.startswith("/vnotice_"):
+                parts = text.split("_")
+                notice_name = parts[1] # 👈 FIXED: The ID is actually at index 1
+                is_active = int(parts[2]) if len(parts) > 2 else 1
+                limit_start = int(parts[3]) if len(parts) > 3 else 0
+                
+                self.controller.view_notice(platform, chat_id, notice_name, is_active=is_active, limit_start=limit_start, is_aoa=is_aoa)
+                return True
             
         # 👇 NEW: Resident Pagination Catcher
         if text.startswith("/res_npage_"):
