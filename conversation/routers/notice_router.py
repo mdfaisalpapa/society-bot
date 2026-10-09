@@ -5,6 +5,12 @@ class NoticeRouter:
     def handle(self, platform, chat_id, text, message, current_session, active_profile):
         is_aoa = getattr(active_profile, 'is_aoa_member', False)
         
+        # --- SHARED FILE DOWNLOAD HANDLER ---
+        if text.startswith("/dl_notice_"):
+            notice_name = text.replace("/dl_notice_", "").replace('_', ' ')
+            self.controller.send_notice_attachment(platform, chat_id, notice_name)
+            return True
+
         # --- AOA COMMANDS ---
         if is_aoa:
             if text == "/aoa_notice_menu":
@@ -19,7 +25,6 @@ class NoticeRouter:
                 self.controller.show_notice_board(platform, chat_id, is_aoa=True, is_active=is_active, limit_start=0)
                 return True
                 
-            # 👇 NEW: AoA Pagination Catcher
             if text.startswith("/aoa_npage_"):
                 parts = text.split("_")
                 is_active = int(parts[2])
@@ -38,58 +43,45 @@ class NoticeRouter:
                 notice_name = text.replace("/enable_notice_", "").replace('_', ' ')
                 self.controller.enable_notice(platform, chat_id, notice_name)
                 return True
-            # Catch individual notice selection (Ticket Style View)
-            if text.startswith("/view_notice_"):
-                notice_name = text.replace("/view_notice_", "").replace('_', ' ')
-                self.controller.view_notice(platform, chat_id, notice_name, active_profile)
-                return True
-# Catch individual notice selection (Detail View with Prev/Next)
+
             if text.startswith("/vnotice_"):
                 parts = text.split("_")
-                notice_name = parts[2]
-                is_active = int(parts[3]) if len(parts) > 3 else 1
-                limit_start = int(parts[4]) if len(parts) > 4 else 0
+                notice_name = parts[1]
+                is_active = int(parts[2]) if len(parts) > 2 else 1
+                limit_start = int(parts[3]) if len(parts) > 3 else 0
                 self.controller.view_notice(platform, chat_id, notice_name, is_active=is_active, limit_start=limit_start, is_aoa=is_aoa)
-                return True
-            if text.startswith("/dl_notice_"):
-                notice_name = text.replace("/dl_notice_", "").replace('_', ' ')
-                self.controller.send_notice_attachment(platform, chat_id, notice_name)
                 return True
                 
             if text == "/aoa_skip_photo" and current_session.get("module") == "aoa_notice":
                 self.controller.show_preview(platform, chat_id, current_session)
                 return True
             if text == "/aoa_publish_notice" and current_session.get("module") == "aoa_notice":
-                self.controller.publish_notice(platform, chat_id, current_session)
+                self.controller.publish_notice(platform, chat_id, current_session, active_profile=active_profile)
                 return True
 
-        # --- RESIDENT COMMAND ---
+        # --- RESIDENT COMMANDS ---
         if text == "/notices":
             self.controller.show_notice_board(platform, chat_id, is_aoa=False, is_active=1, limit_start=0)
             return True
-# Catch individual notice selection (Detail View with Prev/Next)
-           # Catch individual notice selection (Detail View with Prev/Next)
-            if text.startswith("/vnotice_"):
-                parts = text.split("_")
-                notice_name = parts[1] # 👈 FIXED: The ID is actually at index 1
-                is_active = int(parts[2]) if len(parts) > 2 else 1
-                limit_start = int(parts[3]) if len(parts) > 3 else 0
-                
-                self.controller.view_notice(platform, chat_id, notice_name, is_active=is_active, limit_start=limit_start, is_aoa=is_aoa)
-                return True
             
-        # 👇 NEW: Resident Pagination Catcher
+        if text.startswith("/vnotice_"):
+            parts = text.split("_")
+            notice_name = parts[1]
+            is_active = int(parts[2]) if len(parts) > 2 else 1
+            limit_start = int(parts[3]) if len(parts) > 3 else 0
+            self.controller.view_notice(platform, chat_id, notice_name, is_active=is_active, limit_start=limit_start, is_aoa=is_aoa)
+            return True
+            
         if text.startswith("/res_npage_"):
             limit_start = int(text.replace("/res_npage_", ""))
             self.controller.show_notice_board(platform, chat_id, is_aoa=False, is_active=1, limit_start=limit_start)
             return True
+
         # --- WIZARD TEXT & FILE CAPTURE ---
         if current_session and current_session.get("module") == "aoa_notice":
-            # Handle photo/document uploads
             if message and (message.get("photo") or message.get("document")):
                 self.controller.handle_upload(platform, chat_id, message, current_session)
                 return True
-            # Handle text input
             elif text and not text.startswith("/"):
                 self.controller.process_wizard(platform, chat_id, text, current_session)
                 return True

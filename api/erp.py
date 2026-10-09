@@ -149,7 +149,9 @@ class ERPClient(BaseERPClient):
     # --- Notices & Dues ---
     def get_active_notices(self, limit_start=0): return self.notice.get_notices(is_active=1, limit_start=limit_start)
     def get_notices(self, is_active: int, limit_start: int = 0): return self.notice.get_notices(is_active, limit_start)
-    def create_notice(self, title: str, content: str): return self.notice.create_notice(title, content)
+    # --- Notice Wrappers ---
+    def create_notice(self, title: str, content: str, posted_by: str = None): 
+        return self.notice.create_notice(title, content, posted_by=posted_by)
     def disable_notice(self, notice_name: str): return self.notice.disable_notice(notice_name)
     def enable_notice(self, notice_name: str): return self.notice.enable_notice(notice_name)
     def get_outstanding_dues(self, flat_number): return self.dues.get_outstanding_dues(flat_number)
