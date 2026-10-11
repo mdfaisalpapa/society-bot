@@ -121,7 +121,6 @@ class MenuController:
         keyboard.append([{"text": "🔙 Back to Main Hub", "callback_data": "/menu"}])
         
         text = ("🏠 *Resident Portal*\n\n"
-                "You can use the *🚨 Report Violation* button below to flag any active work permit infractions in the building.\n\n"
                 "Select a service:")
         Messenger.send(platform, chat_id, text, inline_keyboard=keyboard)
 

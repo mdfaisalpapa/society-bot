@@ -13,6 +13,7 @@ from .family_api import FamilyService
 from .work_permit_api import WorkPermitService # ? NEW
 from api.vehicle_api import VehicleService
 from .board_resolution_api import BoardResolutionService
+from .parking_api import ParkingService
 
 class ERPClient(BaseERPClient):
     def __init__(self):
@@ -32,6 +33,7 @@ class ERPClient(BaseERPClient):
         self.work_permit = WorkPermitService(self) # ? NEW
         self.vehicle = VehicleService(self)
         self.board_resolution = BoardResolutionService(self)
+        self.parking = ParkingService(self)
 
     # --- Profile Wrappers ---
     def get_resident_profile(self, flat_number): return self.profile.get_resident_profile(flat_number)
@@ -156,6 +158,12 @@ class ERPClient(BaseERPClient):
     def enable_notice(self, notice_name: str): return self.notice.enable_notice(notice_name)
     def get_outstanding_dues(self, flat_number): return self.dues.get_outstanding_dues(flat_number)
 
+    # Add Wrapper Methods at the bottom:
+    # --- Parking Wrappers ---
+    def get_owned_slots_with_allocation(self, flat_number): return self.parking.get_owned_slots_with_allocation(flat_number)
+    def validate_flat_for_parking(self, flat_number): return self.parking.validate_flat(flat_number)
+    def reallocate_parking_slot(self, slot_id, old_name, new_type, occupant, start, end): return self.parking.reallocate_slot(slot_id, old_name, new_type, occupant, start, end)
+    def get_parking_history(self, slot_id): return self.parking.get_allocation_history(slot_id)
     # --- Base Files Wrappers ---
     def upload_file(self, *args, **kwargs): return self.file.upload_file(*args, **kwargs)
     def get_attachments(self, doctype, docname): return self.file.get_attachments(doctype, docname)

@@ -166,7 +166,7 @@ class KeyboardBuilder:
         if is_owner:
             grid.extend([
                 [{"text": "👤 Profile", "callback_data": "/profile"}, {"text": "🏠 Tenant", "callback_data": "/tenant"}],
-                [{"text": "👷 Work Permit", "callback_data": "/work_permit"}]
+                [{"text": "👷 Work Permit", "callback_data": "/work_permit"}, {"text": "🅿️ My Parking", "callback_data": "/parking"}] # ADDED HERE
             ])
         else:
             grid.append([{"text": "👤 Profile", "callback_data": "/profile"}])
@@ -497,14 +497,18 @@ class KeyboardBuilder:
         grid.append([{"text": "🔙 Back to Resident Portal", "callback_data": "/portal_resident"}])
         return grid
 
+    # utils/keyboard.py
     @staticmethod
     def dynamic_select_grid(options: list, callback_prefix: str) -> list:
         grid = []
         for i in range(0, len(options), 2):
-            row = [{"text": options[i], "callback_data": f"{callback_prefix}{options[i]}"}]
-            if i + 1 < len(options):
-                row.append({"text": options[i+1], "callback_data": f"{callback_prefix}{options[i+1]}"})
+            row = []
+            for opt in options[i:i+2]:
+                # Replace spaces with underscores for the hidden callback payload
+                safe_opt = opt.replace(" ", "_")
+                row.append({"text": opt, "callback_data": f"{callback_prefix}{safe_opt}"})
             grid.append(row)
+            
         grid.append([{"text": "🔙 Back", "callback_data": "/menu"}])
         return grid
 

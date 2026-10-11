@@ -10,13 +10,21 @@ class VehicleRouter:
             self.veh_ctrl.show_my_vehicles(platform, chat_id, active_profile.flat_number)
             return True
             
+        
         if text == "/add_vehicle":
-            self.veh_ctrl.start_wizard(platform, chat_id)
+            self.veh_ctrl.start_wizard(platform, chat_id, active_profile)
             return True
             
+        # 👇 NEW: Handle the application button
+        if text == "/apply_open_parking":
+            self.veh_ctrl.process_open_parking_application(platform, chat_id, active_profile.flat_number)
+            return True
+            
+
         if current_session and current_session.get("module") == "add_vehicle":
-            if text.startswith("/vtype_") or current_session.get("step") != "vehicle_type":
-                self.veh_ctrl.process_wizard(platform, chat_id, text, current_session, active_profile)
+            # 👇 ADDED "/vrel_" to the allowed prefixes
+            if not text.startswith("/") or text.startswith(("/vtype_", "/vmake_", "/vmod_", "/vcol_", "/vrel_")):
+                self.veh_ctrl.process_wizard(platform, chat_id, text, message, current_session, active_profile)
                 return True
                 
         return False

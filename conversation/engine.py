@@ -23,7 +23,7 @@ from controllers.admin_controller import AdminController
 from controllers.vehicle_controller import VehicleController
 from controllers.notice_controller import NoticeController
 from controllers.board_resolution_controller import BoardResolutionController
-
+from controllers.parking_controller import ParkingController
 
 # Routers
 from conversation.routers.guard_router import GuardRouter
@@ -40,6 +40,7 @@ from conversation.routers.help_router import HelpRouter  # 👈 ADD THIS
 from conversation.routers.vehicle_router import VehicleRouter
 from conversation.routers.notice_router import NoticeRouter
 from conversation.routers.board_resolution_router import BoardResolutionRouter
+from conversation.routers.parking_router import ParkingRouter
 
 class ConversationEngine:
     def __init__(self):
@@ -64,6 +65,7 @@ class ConversationEngine:
         self.vehicle_controller = VehicleController(self.erp_client, self.session_manager) # NEW
         self.notice_controller = NoticeController(self.erp_client, self.session_manager)
         self.board_res_controller = BoardResolutionController(self.erp_client, self.session_manager)
+        self.parking_controller = ParkingController(self.erp_client, self.session_manager)
 
         
         # Initialize Routers
@@ -89,6 +91,7 @@ class ConversationEngine:
         )
         self.staff_router = StaffRouter(self.staff_controller)
         self.help_router = HelpRouter(self.menu_controller)
+        self.parking_router = ParkingRouter(self.parking_controller)
         # Define Priority Order
         self.routers = [
             self.help_router,    # 👈 ADD IT HERE
@@ -97,6 +100,7 @@ class ConversationEngine:
             self.staff_router,
             self.family_router,
             self.tenant_router,
+            self.parking_router, # NEW ROUTER
             self.maintenance_router,
             self.vehicle_router, # NEW
             self.board_res_router, # 👈 NEW ROUTER
