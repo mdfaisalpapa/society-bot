@@ -57,10 +57,26 @@ class MaintenanceRouter:
             if len(parts) >= 3:
                 self.controller.aoa_show_category_flat_tickets(platform, chat_id, active_profile, parts[0], parts[1], parts[2])
             return True
+
+# ? NEW: AoA Action Button Routing
+        if text.startswith("/aoa_escalate_"):
+            self.controller.prompt_aoa_escalation(platform, chat_id, text.replace("/aoa_escalate_", ""))
+            return True
+        if text.startswith("/msg_resident_"):
+            self.controller.prompt_msg_resident(platform, chat_id, text.replace("/msg_resident_", ""))
+            return True
         # (Inside Command Routing)
         
         # 👇 OPTIMIZED: Use replace instead of split to prevent bugs if a ticket ID contains an underscore
-        if text.startswith("/view_"): self.controller.view_ticket(platform, chat_id, text.replace("/view_", "").upper(), active_profile); return True
+        # 👇 OPTIMIZED: Use replace instead of split to prevent bugs if a ticket ID contains an underscore
+        if text.startswith("/view_"): 
+            self.controller.view_ticket(platform, chat_id, text.replace("/view_", "").upper(), active_profile)
+            return True
+            
+        # 👇 NEW: Deep Link Catcher for QRT Group Redirections
+        if text.startswith("/start view_"): 
+            self.controller.view_ticket(platform, chat_id, text.replace("/start view_", "").upper(), active_profile)
+            return True
         if text.startswith("/viewfile_"): self.controller.view_file(platform, chat_id, text.replace("/viewfile_", "")); return True
         if text.startswith("/addfile_"): self.controller.trigger_upload_prompt(platform, chat_id, text.replace("/addfile_", "").upper()); return True
 
@@ -71,6 +87,7 @@ class MaintenanceRouter:
         # 👇 UPDATE THE WIZARD SESSION BLOCK (Near the bottom):
         if current_session.get("module") == "maintenance" and active_profile:
             step = current_session.get("step")
+            
             if step == "awaiting_category" and text.startswith("/cat_"):
                 self.controller.process_category_selection(platform, chat_id, text)
                 return True
@@ -85,6 +102,15 @@ class MaintenanceRouter:
             # NEW: Handle reopen reasons
             elif step == "awaiting_reopen_reason" and text and not text.startswith("/"):
                 self.controller.save_resident_remark(platform, chat_id, text, active_profile, reopen=True)
+                return True
+
+            # 👇 ADD THE NEW AOA WIZARD TEXT INPUTS HERE 👇
+            # NEW: Handle AoA text inputs
+            elif step == "awaiting_escalation" and text and not text.startswith("/"):
+                self.controller.send_aoa_escalation(platform, chat_id, active_profile, text)
+                return True
+            elif step == "awaiting_resident_msg" and text and not text.startswith("/"):
+                self.controller.send_resident_message(platform, chat_id, active_profile, text)
                 return True
 
         return False

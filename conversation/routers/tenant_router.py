@@ -6,11 +6,17 @@ class TenantRouter:
 
     def handle(self, platform, chat_id, text, message, current_session, active_profile):
         
+        # 👇 THE BOUNCER MUST GO HERE: Before any variables are declared!
+        if not active_profile:
+            return False
+            
         # --- PRE-CHECK: Is the user an Owner? ---
         is_tenant = bool(active_profile.tenant_telegram_chat_id and str(active_profile.tenant_telegram_chat_id) == str(chat_id))
         is_owner = not is_tenant
+
         # 1. File Uploads (Tenant Documents)
         if message and (message.get("photo") or message.get("document")):
+
             reply_text = message.get("reply_to_message", {}).get("text") or message.get("reply_to_message", {}).get("caption") or ""
             module = current_session.get("module") or ""
             

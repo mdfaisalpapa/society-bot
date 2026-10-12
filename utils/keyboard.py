@@ -368,9 +368,10 @@ class KeyboardBuilder:
                 row.append({"text": f"🎫 {tickets[i+1]['name']}", "callback_data": f"/view_{tickets[i+1]['name']}"})
             grid.append(row)
         
+        # 👇 FIX: Clarified the "Open" button to encompass all active states, ensuring "Assigned" tickets aren't hidden
         grid.append([
-            {"text": "🟢 Open", "callback_data": "/my_tickets_0_Open"},
-            {"text": "🔴 Closed", "callback_data": "/my_tickets_0_Closed"}
+            {"text": "🟢 Active (Open/Assigned)", "callback_data": "/my_tickets_0_Open"},
+            {"text": "🔴 Resolved/Closed", "callback_data": "/my_tickets_0_Closed"}
         ])
         
         nav_row = []
@@ -378,11 +379,11 @@ class KeyboardBuilder:
         if len(tickets) == 10: nav_row.append({"text": "Next ➡️", "callback_data": f"/my_tickets_{offset + 10}_{status_filter}"})
         if nav_row: grid.append(nav_row)
         
-        # 👇 CHANGED TO RESIDENT PORTAL
         grid.append([{"text": "🔙 Back to Resident Portal", "callback_data": "/portal_resident"}])
         return grid
+
     @staticmethod
-    def maintenance_ticket_view_grid(ticket_name: str, is_admin: bool, current_status: str, attachments: list) -> list:
+    def maintenance_ticket_view_grid(ticket_name: str, is_admin: bool, current_status: str, attachments: list, is_read_only: bool = False) -> list:
         grid = []
         photo_row = []
         for i, file_doc in enumerate(attachments):
@@ -399,7 +400,7 @@ class KeyboardBuilder:
             ])
             grid.append([{"text": "📸 Add Photos (Max 3)", "callback_data": f"/addfile_{ticket_name}"}])
             grid.append([{"text": "🔙 Back to Ticket Menu", "callback_data": "/admin_tickets"}])
-        else:
+        elif not is_read_only: # Blocks AoA monitors from seeing resident action buttons
             if current_status == "Resolved":
                 grid.append([{"text": "❌ Not Satisfied? Reopen", "callback_data": f"/reopen_{ticket_name}"}])
             else:
@@ -407,8 +408,10 @@ class KeyboardBuilder:
                 grid.append([{"text": "💬 Add Comment", "callback_data": f"/res_rem_{ticket_name}"}])
                 grid.append([{"text": "📸 Add Photos (Max 3)", "callback_data": f"/addfile_{ticket_name}"}])
             grid.append([{"text": "🔙 Back to Tickets", "callback_data": f"/my_tickets_0_{current_status}"}])
+        else:
+            grid.append([{"text": "🔙 Back to Tickets", "callback_data": f"/my_tickets_0_{current_status}"}])
+            
         return grid
-
     @staticmethod
     def wp_confirm_grid() -> list:
         return [
@@ -654,15 +657,32 @@ class KeyboardBuilder:
         
         return grid
     @staticmethod
-    def aoa_ticket_view_grid(ticket_name: str, flat_number: str, status: str, back_callback: str) -> list:
+    def aoa_ticket_view_grid(ticket_name: str, flat_number: str, status: str, back_callback: str, assignee_chat_id: str = None) -> list:
         grid = []
         if status in ["Open", "Pending", "In Progress", "Assigned"]:
-            grid.append([{"text": "👀 Claim Ticket", "callback_data": f"/claim_ticket_{ticket_name}"}])
+            # 👇 FIX: Changed from "Claim Ticket" to an Escalation/Ping action
+            grid.append([{"text": "🔔 Ping Assignee / Escalate", "callback_data": f"/aoa_escalate_{ticket_name}"}])
             
         grid.append([{"text": "💬 Message Resident", "callback_data": f"/msg_resident_{flat_number}"}])
         
-        # 👇 FIX: Use the dynamic callback to return to the flat's ticket list
+        # If an assignee exists, allow direct messaging to the staff member
+        if assignee_chat_id:
+            grid.append([{"text": "💬 Message Maintenance Staff", "callback_data": f"/msg_staff_{assignee_chat_id}"}])
+            
         grid.append([{"text": "🔙 Back", "callback_data": back_callback}])
+        return grid
+
+    @staticmethod
+    def staff_ticket_action_grid(ticket_id: str, current_status: str) -> list:
+        grid = []
+        if current_status == "Assigned":
+            grid.append([{"text": "🛠️ Mark In Progress", "callback_data": f"/staff_prog_{ticket_id}"}])
+            grid.append([{"text": "✅ Mark Resolved", "callback_data": f"/staff_res_{ticket_id}"}])
+        elif current_status == "In Progress":
+            grid.append([{"text": "✅ Mark Resolved", "callback_data": f"/staff_res_{ticket_id}"}])
+            
+        grid.append([{"text": "💬 Add Work Remark", "callback_data": f"/staff_rem_{ticket_id}"}])
+        grid.append([{"text": "📸 Upload Completion Photo", "callback_data": f"/addfile_{ticket_id}"}])
         return grid
 
     @staticmethod

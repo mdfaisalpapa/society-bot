@@ -150,6 +150,14 @@ class ConversationEngine:
             
         if not chat_id: return
 
+        # ==========================================
+        # 🔗 TARGETED DEEP LINK TRANSFORMER
+        # ==========================================
+        # Converts Telegram's hidden "/start view_MT-XXXX" payload into a standard bot command
+        if text.startswith("/start view_"):
+            text = text.replace("/start view_", "/view_")
+            app_logger.info(f"🔗 Deep Link transformed to native command: {text}")
+
         current_session = self.session_manager.get_session(chat_id)
         active_profile = self.erp_client.get_profile_by_chat_id(chat_id)
 
@@ -166,7 +174,13 @@ class ConversationEngine:
                 app_logger.info(f"Silently patched telegram_user_id for {chat_id} to '{text_username}'")
         
         # ==========================================
-        exempt_starts = ("/v", "/cat_", "/fam_", "/wp_", "/addworker_", "/viol_", "/admin_", "/aoa_", "/disable_notice_", "/enable_notice_", "/res_npage_", "/aoa_npage_", "/vnotice_", "/dl_notice_")
+        # --- 1. GLOBAL COMMAND OVERRIDE --- 
+        exempt_starts = (
+            "/v", "/cat_", "/fam_", "/wp_", "/addworker_", "/viol_", 
+            "/admin_", "/aoa_", "/disable_notice_", "/enable_notice_", 
+            "/res_npage_", "/aoa_npage_", "/vnotice_", "/dl_notice_",
+            "/msg_resident_" # 👈 ADDED HERE
+        )
         
         exempt_exact = [
             "/rel_Tenant", "/rel_Caretaker", "/rel_Company Lease", "/rel_Guest House", 
