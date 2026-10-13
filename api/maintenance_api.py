@@ -63,13 +63,62 @@ class MaintenanceService:
         data = res.get("data", []) if isinstance(res, dict) else res
         return data[0] if data else {}
 
-    def upload_file_to_ticket(self, ticket_name: str, file_data: bytes) -> bool:
+    def upload_file_to_ticket(self, ticket_name: str, file_data: bytes, file_name: str = "attachment.jpg") -> bool:
         result = self.file_service.upload_file(
             doctype="Maintenance Ticket", 
             docname=ticket_name, 
-            file_name="attachment.jpg", 
+            file_name=file_name, 
             file_data=file_data, 
             mime_type="image/jpeg", 
             is_private=0
         )
         return result.get("success", False)
+
+    def get_staff_assigned_tickets(self, device_id: str = None, status_filter: str = "Open") -> list:
+        import json
+        import requests
+        from utils.logger import app_logger
+        
+        clean_filter = str(status_filter).strip().capitalize()
+        
+        # 1. Build dynamic filters based on the selected tab
+        if clean_filter == "Open":
+            filter_list = [["status", "=", "Open"]]
+        elif clean_filter == "Assigned":
+            filter_list = [["status", "in", ["Assigned", "In Progress"]]]
+            if device_id:
+                filter_list.append(["assigned_to", "=", device_id])
+        elif clean_filter == "Resolved":
+            filter_list = [["status", "in", ["Resolved", "Closed"]]]
+            if device_id:
+                filter_list.append(["assigned_to", "=", device_id])
+        else:
+            filter_list = [["status", "=", "Open"]]
+            
+        params = {
+            "filters": json.dumps(filter_list),
+            "fields": '["name", "category", "resident", "status", "description", "assigned_to"]',
+            "order_by": "creation asc" if clean_filter != "Resolved" else "modified desc",
+            "limit_page_length": 20
+        }
+        
+        try:
+            res = requests.get(f"{self.erp.base_url}/Maintenance Ticket", headers=self.erp.headers, params=params)
+            if res.status_code == 200:
+                data = res.json().get("data", [])
+                return data if isinstance(data, list) else []
+            return []
+        except Exception as e:
+            app_logger.error(f"API CRASH in get_staff_assigned_tickets: {str(e)}")
+            return []
+
+    def get_maintenance_staff_devices(self) -> list:
+        """Fetches active Authorized Bot Devices where device_role starts with 'Maintenance'."""
+        import json
+        filters = json.dumps([
+            ["device_role", "like", "Maintenance%"],
+            ["is_active", "=", 1]
+        ])
+        fields = '["name", "device_name", "device_role", "assigned_staff_name", "messenger_id"]'
+        res = self.erp.get_list("Authorized Bot Device", filters=filters, fields=fields)
+        return res.get("data", []) if isinstance(res, dict) else (res or [])

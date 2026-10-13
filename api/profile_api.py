@@ -67,17 +67,21 @@ class ProfileService:
     def get_profile_by_chat_id(self, chat_id: str) -> ResidentProfile:
         staff_role = None
         staff_name = None
+        device_id = None
         
         device_params = {
             "filters": json.dumps([["messenger_id", "=", str(chat_id)], ["is_active", "=", 1]]),
-            "fields": '["device_name", "device_role", "assigned_staff_name"]' 
+            "fields": '["name", "device_name", "device_role", "assigned_staff_name"]' 
         }
         device_res = requests.get(f"{self.base_url}/Authorized Bot Device", headers=self.headers, params=device_params)
         if device_res.status_code == 200 and device_res.json().get("data"):
-            device_data = device_res.json()["data"][0]
-            staff_role = device_data.get('device_role')
-            staff_name = device_data.get('assigned_staff_name') or device_data.get('device_name')
-
+            devices = device_res.json()["data"]
+            staff_role = ",".join([d.get("device_role") for d in devices if d.get("device_role")])
+            staff_name = next((d.get('assigned_staff_name') or d.get('device_name') for d in devices), "Staff")
+            
+            # 👇 Prefer the device record whose role starts with "Maintenance" for ticket linking
+            maint_dev = next((d for d in devices if str(d.get("device_role", "")).startswith("Maintenance")), devices[0])
+            device_id = maint_dev.get("name")
         profile = None
         
         # Check Owners
@@ -112,12 +116,24 @@ class ProfileService:
         if profile:
             profile.staff_role = staff_role
             profile.staff_name = staff_name
+            profile.device_id = device_id
             return profile
 
         if staff_role:
-            return ResidentProfile(flat_number='ESTATE OFFICE', role=staff_role, staff_role=staff_role, owner_name=staff_name, telegram_chat_id=chat_id, is_rented=False)
-            
+            prof = ResidentProfile(
+                flat_number='ESTATE OFFICE', 
+                role=staff_role, 
+                staff_role=staff_role, 
+                owner_name=staff_name, 
+                telegram_chat_id=chat_id, 
+                is_rented=False
+            )
+            prof.staff_name = staff_name
+            prof.device_id = device_id
+            return prof
+
         return None
+
     def get_resident_chat_id(self, flat_number: str) -> str:
         profile = self.get_resident_profile(str(flat_number).upper().strip())
         if profile:

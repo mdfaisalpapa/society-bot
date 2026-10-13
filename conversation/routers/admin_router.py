@@ -1,20 +1,25 @@
 from utils.logger import app_logger
+from services.messenger import Messenger
 
 class AdminRouter:
     def __init__(self, admin_controller):
         self.controller = admin_controller
 
     def handle(self, platform, chat_id, text, message, current_session, active_profile):
-        role = getattr(active_profile, 'role', '')
+        if not active_profile:
+            return False
+
+        raw_role = getattr(active_profile, 'role', '') or ''
+        raw_staff_role = getattr(active_profile, 'staff_role', '') or ''
         
-        # ? FIX: Added .base_client right after .erp
-        #staff_role = self.controller.erp.base_client.get_staff_role(chat_id)
-        # ✅ FIX: Call the method directly on the ERPClient
-        staff_role = self.controller.erp.get_staff_role(chat_id)
+        # Combine and split any comma-separated roles from active_profile
+        all_roles = [r.strip() for r in f"{raw_role},{raw_staff_role}".split(',') if r.strip()]
         
-        if role not in ["Office Admin", "Estate Manager", "Doc Verifier"] and staff_role not in ["Office Admin", "Estate Manager", "Doc Verifier"]:
+        allowed_admin_roles = ["Office Admin", "Estate Manager", "Doc Verifier"]
+        if not any(r in allowed_admin_roles for r in all_roles):
             return False
             
+        # ... keep the rest of your admin_router.py methods (starting at if text.startswith("/doc_act_"):) unchanged ...            
         # ... rest of your admin routing ...
             
         # ... rest of your admin routing ...

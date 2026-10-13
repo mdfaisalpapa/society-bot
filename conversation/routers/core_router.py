@@ -105,30 +105,30 @@ class CoreRouter:
         # ==========================================
         # 🔒 STRICT: Unified Hub Portal Navigation
         # ==========================================
+        raw_staff_role = getattr(active_profile, 'staff_role', '') if active_profile else ''
+        staff_roles = [r.strip() for r in str(raw_staff_role).split(',') if r.strip()]
+
         if text == "/portal_resident":
             # Resident portal is open to all logged-in profiles
             self.menu.show_resident_portal(platform, chat_id, active_profile)
             return True
             
         if text == "/portal_guard":
-            clean_staff_role = getattr(active_profile, 'staff_role', '').strip() if getattr(active_profile, 'staff_role', None) else ""
-            if clean_staff_role == "Security Guard":
+            if "Security Guard" in staff_roles:
                 self.menu.show_guard_portal(platform, chat_id, active_profile)
             else:
                 Messenger.send(platform, chat_id, "❌ Unauthorized. This portal is restricted to Security Personnel.")
             return True
             
         if text == "/portal_admin":
-            clean_staff_role = getattr(active_profile, 'staff_role', '').strip() if getattr(active_profile, 'staff_role', None) else ""
-            if clean_staff_role in ["Office Admin", "Estate Manager"]:
+            if any(r in ["Office Admin", "Estate Manager"] for r in staff_roles):
                 self.menu.show_admin_portal(platform, chat_id, active_profile)
             else:
                 Messenger.send(platform, chat_id, "❌ Unauthorized. This portal is restricted to the Estate Office.")
             return True
             
         if text == "/portal_verifier":
-            clean_staff_role = getattr(active_profile, 'staff_role', '').strip() if getattr(active_profile, 'staff_role', None) else ""
-            if clean_staff_role == "Doc Verifier":
+            if "Doc Verifier" in staff_roles:
                 self.menu.show_verifier_portal(platform, chat_id, active_profile)
             else:
                 Messenger.send(platform, chat_id, "❌ Unauthorized. This portal is restricted to Document Verifiers.")
@@ -140,7 +140,6 @@ class CoreRouter:
             else:
                 Messenger.send(platform, chat_id, "❌ Unauthorized. You do not have AoA Committee privileges.")
             return True
-
         if text == "/profile": 
             self.profile.show_profile(platform, chat_id, active_profile)
             return True

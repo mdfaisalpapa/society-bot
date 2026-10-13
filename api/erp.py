@@ -57,8 +57,13 @@ class ERPClient(BaseERPClient):
     def create_maintenance_ticket(self, flat_number, category, description): return self.maintenance.create_maintenance_ticket(flat_number, category, description)
     def get_user_tickets(self, flat_number, offset=0, status_filter="Open"): return self.maintenance.get_user_tickets(flat_number, offset, status_filter)
     def get_ticket_details(self, ticket_name): return self.maintenance.get_ticket_details(ticket_name)
-    def upload_file_to_ticket(self, ticket_name, file_data): return self.maintenance.upload_file_to_ticket(ticket_name, file_data)
-
+    def upload_file_to_ticket(self, ticket_name, file_data, file_name="attachment.jpg"): 
+        return self.maintenance.upload_file_to_ticket(ticket_name, file_data, file_name)
+    def get_staff_assigned_tickets(self, device_id: str = None, status_filter: str = "Open"): 
+        return self.maintenance.get_staff_assigned_tickets(device_id, status_filter)
+        
+    def get_maintenance_staff_devices(self):
+        return self.maintenance.get_maintenance_staff_devices()
     # --- Visitor Wrappers ---
     def get_frequent_visitors(self, resident): return self.visitor.get_frequent_visitors(resident)
     def create_preapproved_visitor(self, *args, **kwargs): return self.visitor.create_preapproved_visitor(*args, **kwargs)

@@ -99,7 +99,7 @@ class MaintenanceController:
             if target_role:
                 # Query ERPNext for the Active Staff Device matching this role
                 filters = json.dumps([["device_role", "=", target_role], ["is_active", "=", 1]])
-                fields = json.dumps(["messenger_id", "assigned_staff_name", "device_name"])
+                fields = json.dumps(["name", "messenger_id", "assigned_staff_name", "device_name"])
                 
                 device_res = self.erp.get_list("Authorized Bot Device", filters=filters, fields=fields)
                 devices = device_res.get("data", []) if isinstance(device_res, dict) else device_res
@@ -117,7 +117,7 @@ class MaintenanceController:
 
             if assigned_staff:
                 # 2. Update status in ERPNext to "Assigned"
-                self.erp.update_document("Maintenance Ticket", ticket_id, {"status": "Assigned"})
+                self.erp.update_document("Maintenance Ticket", ticket_id, {"status": "Assigned", "assigned_to": assigned_staff["id"]})
                 
                 # 3. Add a system remark to the ticket history
                 self.erp.append_remark("Maintenance Ticket", ticket_id, "🤖 System", f"Auto-assigned to {assigned_staff['name']}")
@@ -190,7 +190,14 @@ class MaintenanceController:
             inline_keyboard=KeyboardBuilder.maintenance_active_tickets_grid(tickets, offset, status_filter)
         )
     def view_ticket(self, platform: str, chat_id: str, ticket_name: str, active_profile=None):
-        """Shows ticket details and builds dynamic buttons for Admins and Residents."""
+        """Shows ticket details and builds dynamic buttons for Admins, Residents, and Staff."""
+        # 👇 1. Preserve back_route BEFORE clearing any active upload/wizard state
+        session_data = self.session.get_session(chat_id).get("data", {})
+        saved_back_route = session_data.get("back_route")
+        self.session.clear_session(chat_id)
+        if saved_back_route:
+            self.session.update_session(chat_id, module="maintenance", step="viewing_ticket", data={"back_route": saved_back_route})
+
         ticket = self.erp.get_ticket_details(ticket_name)
         if not ticket:
             Messenger.send(platform, chat_id, "❌ Error loading ticket details.")
@@ -199,25 +206,55 @@ class MaintenanceController:
         # --- 🛡️ ROLE & PERMISSION ENGINE ---
         staff_role = getattr(active_profile, 'staff_role', '') if active_profile else ''
         role = getattr(active_profile, 'role', '') if active_profile else ''
-        
-        is_admin = staff_role in ["Office Admin", "Estate Manager"] or role in ["Office Admin", "Estate Manager"]
+
+        is_maintenance = bool(staff_role and "Maintenance" in staff_role)
+        is_admin = any(r.strip() in ["Office Admin", "Estate Manager"] for r in staff_role.split(",")) or role in ["Office Admin", "Estate Manager"]
         is_aoa = getattr(active_profile, 'is_aoa_member', False)
         is_own_ticket = (ticket.get('resident') == getattr(active_profile, 'flat_number', ''))
         
-        is_read_only = True if (is_aoa and not is_admin and not is_own_ticket) else False
+        if is_maintenance and not is_own_ticket:
+            is_read_only = True
+        elif (is_aoa and not is_admin and not is_own_ticket):
+            is_read_only = True
+        else:
+            is_read_only = False
         # -----------------------------------
 
-        # 👇 REFACTORED: Use the common helper
         reply = self._format_ticket_details(ticket)
         
         attachments = self.erp.get_attachments("Maintenance Ticket", ticket_name) or []
         grid = KeyboardBuilder.maintenance_ticket_view_grid(ticket_name, is_admin, ticket.get('status'), attachments, is_read_only)
         
+        # 3. INJECT STRICT STAFF BUTTONS (Inserted right above the Back button)
+        if is_maintenance and not is_own_ticket:
+            staff_btns = []
+            if ticket.get("status") == "Open":
+                staff_btns.append([{"text": "🙋‍♂️ Claim Task", "callback_data": f"/claim_{ticket_name}"}])
+            elif ticket.get("status") in ["Assigned", "In Progress"]:
+                staff_btns.append([{"text": "💬 Add Update", "callback_data": f"/res_rem_{ticket_name}"}])
+                staff_btns.append([{"text": "📸 Add Completion Photos", "callback_data": f"/addfile_{ticket_name}"}])
+                staff_btns.append([{"text": "✅ Mark as Resolved", "callback_data": f"/staff_resolve_{ticket_name}"}])
+                
+            # Insert right before the final Back button row
+            grid = grid[:-1] + staff_btns + grid[-1:]
+        # 👇 2. SMART MEMORY ROUTING FOR THE BACK BUTTON
         session_data = self.session.get_session(chat_id).get("data", {})
-        grid = KeyboardBuilder.apply_memory_back(grid, session_data.get("back_route"))
+        back_route = saved_back_route
+        
+        # If the session memory is empty (due to a Deep Link or a wizard reset), calculate the correct route
+        if not back_route:
+            if is_maintenance and not is_own_ticket:
+                back_route = "/staff_tickets"
+            elif is_admin:
+                back_route = "/admin_tickets"
+            elif is_aoa and not is_own_ticket:
+                back_route = "/aoa_monitor_menu_open"
+            else:
+                back_route = "/my_tickets_0_Open"
+                
+        grid = KeyboardBuilder.apply_memory_back(grid, back_route)
         
         Messenger.send(platform, chat_id, reply, inline_keyboard=grid)
-
     def trigger_upload_prompt(self, platform: str, chat_id: str, ticket_name: str):
         """Starts a fresh upload batch allowing 3 photos."""
         
@@ -243,20 +280,17 @@ class MaintenanceController:
 
 
 
-    def handle_file_upload(self, platform: str, chat_id: str, ticket_name: str, message: dict):
+    def handle_file_upload(self, platform: str, chat_id: str, ticket_name: str, message: dict, active_profile=None):
         if ticket_name not in _ticket_locks:
             _ticket_locks[ticket_name] = threading.Lock()
             
         with _ticket_locks[ticket_name]:
-            
-            # 1. Fetch strictly from the current SESSION, not ERPNext
             session_info = self.session.get_session(chat_id) or {}
             session_data = session_info.get("data", {})
             
             current_count = session_data.get("upload_count", 0)
             upload_limit = session_data.get("upload_limit", 3)
             
-            # 2. Block if this specific batch is maxed out
             if current_count >= upload_limit:
                 if not session_data.get("limit_notified"):
                     Messenger.send(platform, chat_id, f"🛑 Batch limit of {upload_limit} reached. Extra photos ignored.")
@@ -264,10 +298,8 @@ class MaintenanceController:
                     self.session.update_session(chat_id, step="awaiting_file", module="maintenance", data=session_data)
                 return
 
-            # 3. Process the file
             file_id = message.get("photo")[-1].get("file_id")
             file_url = Messenger.get_file_url(platform, file_id)
-            
             if not file_url:
                 return
                 
@@ -275,12 +307,23 @@ class MaintenanceController:
             response = requests.get(file_url)
             if response.status_code != 200:
                 return
+
+            # 👇 NEW: Differentiate filename by uploader role
+            staff_role = getattr(active_profile, 'staff_role', '') if active_profile else ''
+            is_own_ticket = False
+            if active_profile:
+                ticket = self.erp.get_ticket_details(ticket_name)
+                is_own_ticket = (ticket.get('resident') == getattr(active_profile, 'flat_number', ''))
+
+            new_count = current_count + 1
+            if staff_role and "Maintenance" in staff_role and not is_own_ticket:
+                custom_file_name = f"resolved_{ticket_name}_{new_count}.jpg"
+            else:
+                custom_file_name = f"issue_{ticket_name}_{new_count}.jpg"
                 
-            success = self.erp.upload_file_to_ticket(ticket_name, response.content)
+            success = self.erp.upload_file_to_ticket(ticket_name, response.content, file_name=custom_file_name)
             
             if success:
-                # 4. Increment the session count!
-                new_count = current_count + 1
                 session_data["upload_count"] = new_count
                 self.session.update_session(chat_id, step="awaiting_file", module="maintenance", data=session_data)
                 
@@ -288,15 +331,20 @@ class MaintenanceController:
                     Messenger.send(
                         platform, 
                         chat_id, 
-                        f"✅ Photo {new_count}/{upload_limit} attached!\n\n🛑 Batch complete. To add more later, click 'Add Photos' again.",
-                        remove_keyboard=True
+                        f"✅ Photo {new_count}/{upload_limit} attached as *{custom_file_name}*!\n\n🛑 Batch complete."
                     )
                     self.session.clear_session(chat_id)
+                    
+                    # 👇 NEW: Automatically refresh the ticket view when the batch is full
+                    self.view_ticket(platform, chat_id, ticket_name, active_profile)
                 else:
+                    # 👇 NEW: Give them a button to exit early and view the ticket
+                    grid = [[{"text": "🔙 Done Uploading (View Ticket)", "callback_data": f"/view_{ticket_name}"}]]
                     Messenger.send(
                         platform, 
                         chat_id, 
-                        f"✅ Photo {new_count}/{upload_limit} attached!\n\nYou can send {upload_limit - new_count} more."
+                        f"✅ Photo {new_count}/{upload_limit} attached as *{custom_file_name}*!\n\nYou can send {upload_limit - new_count} more or tap below to finish.",
+                        inline_keyboard=grid
                     )
             else:
                 Messenger.send(platform, chat_id, "❌ Failed to upload photo to ERPNext.")
@@ -329,10 +377,18 @@ class MaintenanceController:
     def save_resident_remark(self, platform: str, chat_id: str, text: str, active_profile, reopen: bool = False):
         session_data = self.session.get_session(chat_id).get("data", {})
         ticket_id = session_data.get("ticket_id")
-        flat = getattr(active_profile, 'flat_number', 'Resident')
         
-        author = f"🏠 Resident ({flat})"
-        remark_text = f"🚨 *[CASE REOPENED]*\n{text}" if reopen else text
+        # Dynamically determine the author based on their role
+        staff_role = getattr(active_profile, 'staff_role', '')
+        
+        if staff_role and "Maintenance" in staff_role:
+            staff_name = getattr(active_profile, 'staff_name', 'Maintenance Team')
+            author = f"🛠️ {staff_name}"
+            remark_text = f"🔹 *[UPDATE]*\n{text}"
+        else:
+            flat = getattr(active_profile, 'flat_number', 'Resident')
+            author = f"🏠 Resident ({flat})"
+            remark_text = f"🚨 *[CASE REOPENED]*\n{text}" if reopen else text
         
         # Append the remark
         success = self.erp.append_remark("Maintenance Ticket", ticket_id, author, remark_text)
@@ -344,12 +400,11 @@ class MaintenanceController:
         self.session.clear_session(chat_id)
         
         if success:
-            grid = [[{"🔙 Return to Ticket": f"/view_{ticket_id}"}]]
-            msg = f"✅ Case {ticket_id} has been reopened and sent back to the office." if reopen else f"✅ Comment added to {ticket_id}."
-            Messenger.send(platform, chat_id, msg, grid=grid)
+            grid = [[{"text": "🔙 Return to Ticket", "callback_data": f"/view_{ticket_id}"}]]
+            msg = f"✅ Case {ticket_id} has been reopened." if reopen else f"✅ Comment added to {ticket_id}."
+            Messenger.send(platform, chat_id, msg, inline_keyboard=grid)
         else:
             Messenger.send(platform, chat_id, "❌ Failed to update the ticket.")
-
 
 # ==========================================
     # 👔 AOA TICKET MONITORING MODULE
@@ -451,6 +506,8 @@ class MaintenanceController:
         
         reply += f"🎫 *Ticket:* {ticket.get('name')}\n"
         reply += f"📌 *Status:* {ticket.get('status')}\n"
+        if ticket.get('assigned_to'):
+            reply += f"👷 *Assigned To:* {ticket.get('assigned_to')}\n"
         reply += f"📝 *Description:*\n{safe_desc}\n"
         
         if ticket.get('resolution_remarks'):
@@ -634,3 +691,154 @@ class MaintenanceController:
             Messenger.send(platform, chat_id, f"✅ Message delivered directly to the active resident of {flat_number}.")
         else:
             Messenger.send(platform, chat_id, f"❌ Delivery failed: The active resident for Flat {flat_number} does not have an active Telegram session.")
+
+    def show_staff_tickets(self, platform: str, chat_id: str, active_profile, status_filter: str = "Open"):
+        clean_filter = str(status_filter).strip().capitalize()
+        device_id = getattr(active_profile, 'device_id', None)
+        
+        # 1. Save exact tab to session memory so 'Back to Tickets' returns to the active tab
+        self.session.update_session(
+            chat_id, 
+            module="maintenance", 
+            step="viewing_list", 
+            data={"back_route": f"/staff_tickets_{clean_filter}"}
+        )
+        
+        tickets = self.erp.get_staff_assigned_tickets(device_id=device_id, status_filter=clean_filter)
+        
+        grid = []
+        # 2. 3-Tab Filter Bar at the top
+        grid.append([
+            {"text": f"{'🔘' if clean_filter == 'Open' else '🟢'} Open", "callback_data": "/staff_tickets_Open"},
+            {"text": f"{'🔘' if clean_filter == 'Assigned' else '🟡'} My Claimed", "callback_data": "/staff_tickets_Assigned"},
+            {"text": f"{'🔘' if clean_filter == 'Resolved' else '🔴'} Resolved", "callback_data": "/staff_tickets_Resolved"}
+        ])
+
+        # 3. Ticket Buttons
+        for t in tickets:
+            btn_text = f"🎫 {t.get('name')} | Flat {t.get('resident')} ({t.get('category')})"
+            grid.append([{"text": btn_text, "callback_data": f"/view_{t.get('name')}"}])
+            
+        grid.append([{"text": "🔙 Main Menu", "callback_data": "/menu"}])
+
+        header_map = {
+            "Open": "🟢 *Unassigned Open Tickets*",
+            "Assigned": "🟡 *My Claimed / Assigned Tasks*",
+            "Resolved": "🔴 *My Resolved Tasks*"
+        }
+        header = header_map.get(clean_filter, "🛠️ *Maintenance Dashboard*")
+        
+        if not tickets:
+            msg = f"{header}\n\n✅ No tickets found in the *{clean_filter}* queue."
+        else:
+            msg = f"{header}\n\nFound *{len(tickets)}* ticket(s). Select a ticket below:"
+
+        Messenger.send(platform, chat_id, msg, inline_keyboard=grid)
+    def claim_ticket(self, platform: str, chat_id: str, ticket_id: str, active_profile):
+        staff_name = getattr(active_profile, 'staff_name', None) or getattr(active_profile, 'owner_name', None) or 'Maintenance Team'
+        device_id = getattr(active_profile, 'device_id', None)
+        
+        payload = {"status": "Assigned"}
+        if device_id:
+            payload["assigned_to"] = device_id
+            
+        status_success = self.erp.update_document("Maintenance Ticket", ticket_id, payload)
+        
+        if status_success:
+            remark_text = f"🙋‍♂️ *[CLAIMED]*\nAssigned to self by {staff_name} ({device_id or 'Staff'})."
+            self.erp.append_remark("Maintenance Ticket", ticket_id, staff_name, remark_text)
+            
+            Messenger.send(platform, chat_id, f"✅ You have successfully claimed `{ticket_id}`.")
+            self.view_ticket(platform, chat_id, ticket_id, active_profile)
+        else:
+            Messenger.send(platform, chat_id, "❌ Failed to claim the ticket. Please try again.")
+
+    # ==========================================
+    # 🏢 OFFICE ADMIN STAFF ASSIGNMENT FLOW
+    # ==========================================
+    def prompt_admin_assign_staff(self, platform: str, chat_id: str, ticket_id: str):
+        """Lists only active devices whose device_role starts with 'Maintenance'."""
+        devices = self.erp.get_maintenance_staff_devices()
+        
+        if not devices:
+            Messenger.send(platform, chat_id, "❌ No active Maintenance Team devices found in Authorized Bot Device.")
+            return
+            
+        grid = []
+        for d in devices:
+            dev_id = d.get("name")
+            staff_name = d.get("assigned_staff_name") or d.get("device_name") or dev_id
+            role = d.get("device_role", "")
+            btn_text = f"👷 {staff_name} ({role})"
+            grid.append([{"text": btn_text, "callback_data": f"/admin_setstaff_{ticket_id}|{dev_id}"}])
+            
+        grid.append([{"text": "🔙 Cancel", "callback_data": f"/view_{ticket_id}"}])
+        
+        Messenger.send(
+            platform, 
+            chat_id, 
+            f"👷 *Assign Ticket {ticket_id}*\n\nSelect a Maintenance Team member to assign this task:", 
+            inline_keyboard=grid
+        )
+    def staff_resolve_ticket(self, platform: str, chat_id: str, ticket_id: str, active_profile):
+        from services.messenger import Messenger
+        
+        # Backend Security Check: Ensure the ticket isn't still Open
+        ticket = self.erp.get_ticket_details(ticket_id)
+        if ticket and ticket.get("status") == "Open":
+            Messenger.send(platform, chat_id, "❌ You must claim this task before you can resolve it.")
+            self.view_ticket(platform, chat_id, ticket_id, active_profile)
+            return
+
+        staff_name = getattr(active_profile, 'staff_name', 'Maintenance Team')
+        remark_text = f"✅ *[RESOLVED]*\nTask completed and marked resolved by {staff_name}."
+        
+        # 1. Update the ticket status to 'Resolved'
+        status_success = self.erp.update_document("Maintenance Ticket", ticket_id, {"status": "Resolved"})
+        
+        if status_success:
+            # 2. Add the audit trail remark
+            self.erp.append_remark("Maintenance Ticket", ticket_id, staff_name, remark_text)
+            
+            # 3. Confirm and refresh the ticket view
+            Messenger.send(platform, chat_id, f"✅ Ticket `{ticket_id}` has been successfully resolved.")
+            self.view_ticket(platform, chat_id, ticket_id, active_profile)
+        else:
+            Messenger.send(platform, chat_id, "❌ Failed to resolve the ticket. Please try again.")
+
+    def admin_set_staff(self, platform: str, chat_id: str, ticket_id: str, device_id: str, active_profile):
+        """Assigns the ticket to the selected Maintenance Bot Device and notifies the worker."""
+        devices = self.erp.get_maintenance_staff_devices()
+        target_dev = next((d for d in devices if str(d.get("name")) == str(device_id)), {})
+        
+        staff_name = target_dev.get("assigned_staff_name") or target_dev.get("device_name") or device_id
+        staff_chat_id = target_dev.get("messenger_id")
+        admin_name = getattr(active_profile, 'staff_name', None) or getattr(active_profile, 'owner_name', 'Office Admin')
+
+        payload = {
+            "status": "Assigned",
+            "assigned_to": device_id
+        }
+        
+        success = self.erp.update_document("Maintenance Ticket", ticket_id, payload)
+        if success:
+            remark = f"👷 *[ASSIGNED]*\nAssigned to {staff_name} ({device_id}) by {admin_name}."
+            self.erp.append_remark("Maintenance Ticket", ticket_id, f"🏢 {admin_name}", remark)
+            
+            # Alert the assigned maintenance worker on Telegram
+            if staff_chat_id:
+                ticket = self.erp.get_ticket_details(ticket_id)
+                alert_msg = (
+                    f"🚨 *New Task Assigned by Office*\n\n"
+                    f"🎫 *Ticket:* `{ticket_id}`\n"
+                    f"🏠 *Flat:* {ticket.get('resident', 'Unknown')}\n"
+                    f"📂 *Category:* {ticket.get('category', 'General')}\n\n"
+                    f"📝 *Description:*\n_{ticket.get('description', '')}_"
+                )
+                staff_grid = [[{"text": "👁️ View Ticket Details", "callback_data": f"/view_{ticket_id}"}]]
+                Messenger.send(platform, staff_chat_id, alert_msg, inline_keyboard=staff_grid)
+                
+            Messenger.send(platform, chat_id, f"✅ Ticket `{ticket_id}` assigned to *{staff_name}*.")
+            self.view_ticket(platform, chat_id, ticket_id, active_profile)
+        else:
+            Messenger.send(platform, chat_id, "❌ Failed to assign staff to the ticket.")

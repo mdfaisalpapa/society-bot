@@ -385,22 +385,41 @@ class KeyboardBuilder:
     @staticmethod
     def maintenance_ticket_view_grid(ticket_name: str, is_admin: bool, current_status: str, attachments: list, is_read_only: bool = False) -> list:
         grid = []
-        photo_row = []
-        for i, file_doc in enumerate(attachments):
-            photo_row.append({"text": f"🖼️ Photo {i+1}", "callback_data": f"/viewfile_{file_doc['name']}"})
-            if len(photo_row) == 2:
-                grid.append(photo_row)
-                photo_row = []
-        if photo_row: grid.append(photo_row)
+        
+        # 1. Sort chronologically (Oldest to Newest)
+        # If 'creation' is present in the dict, sort by it; otherwise reverse ERPNext's default newest-first order
+        if attachments and isinstance(attachments[0], dict) and "creation" in attachments[0]:
+            sorted_attachments = sorted(attachments, key=lambda x: x.get("creation", ""))
+        else:
+            sorted_attachments = list(reversed(attachments)) if attachments else []
+
+        # 2. Separate Issue Photos and Completion Photos
+        issue_photos = [f for f in sorted_attachments if not str(f.get("file_name", "")).startswith("resolved_")]
+        completion_photos = [f for f in sorted_attachments if str(f.get("file_name", "")).startswith("resolved_")]
+
+        # 3. Build buttons with clean, independent numbering (Issue first, Completion at the end)
+        photo_buttons = []
+        for idx, file_doc in enumerate(issue_photos, 1):
+            photo_buttons.append({"text": f"🖼️ Issue Photo {idx}", "callback_data": f"/viewfile_{file_doc['name']}"})
+            
+        for idx, file_doc in enumerate(completion_photos, 1):
+            photo_buttons.append({"text": f"✅ Completion Photo {idx}", "callback_data": f"/viewfile_{file_doc['name']}"})
+
+        # Pack into 2-column rows
+        for i in range(0, len(photo_buttons), 2):
+            grid.append(photo_buttons[i:i+2])
             
         if is_admin:
             grid.append([
                 {"text": "🔄 Change Status", "callback_data": f"/admin_stat_{ticket_name}"},
-                {"text": "💬 Add Remark", "callback_data": f"/admin_rem_{ticket_name}"}
+                {"text": "👷 Assign Staff", "callback_data": f"/admin_assign_{ticket_name}"}
             ])
-            grid.append([{"text": "📸 Add Photos (Max 3)", "callback_data": f"/addfile_{ticket_name}"}])
+            grid.append([
+                {"text": "💬 Add Remark", "callback_data": f"/admin_rem_{ticket_name}"},
+                {"text": "📸 Add Photos (Max 3)", "callback_data": f"/addfile_{ticket_name}"}
+            ])
             grid.append([{"text": "🔙 Back to Ticket Menu", "callback_data": "/admin_tickets"}])
-        elif not is_read_only: # Blocks AoA monitors from seeing resident action buttons
+        elif not is_read_only: # Blocks AoA monitors and Staff from seeing resident action buttons
             if current_status == "Resolved":
                 grid.append([{"text": "❌ Not Satisfied? Reopen", "callback_data": f"/reopen_{ticket_name}"}])
             else:

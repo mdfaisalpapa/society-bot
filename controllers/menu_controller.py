@@ -19,11 +19,13 @@ class MenuController:
             return
 
         role = getattr(active_profile, 'role', '')
-        staff_role = getattr(active_profile, 'staff_role', None)
-        clean_staff_role = staff_role.strip() if staff_role else ""
+        
+        # 1. PARSE STAFF ROLES INTO A LIST
+        raw_staff_role = getattr(active_profile, 'staff_role', '')
+        staff_roles = [r.strip() for r in str(raw_staff_role).split(',')] if raw_staff_role else []
 
         # ==========================================
-        # 1. BUILD UNIFIED DASHBOARD TEXT
+        # 2. BUILD UNIFIED DASHBOARD TEXT
         # ==========================================
         if role == "Owner": raw_name = getattr(active_profile, 'owner_name', None)
         elif role == "Tenant": raw_name = getattr(active_profile, 'tenant_name', None)
@@ -37,7 +39,7 @@ class MenuController:
                 "Your Unified Dashboard is ready. Please select a portal below to continue:\n")
                 
         # ==========================================
-        # 2. VERIFICATION & GROUP MEMBERSHIP CHECK
+        # 3. VERIFICATION & GROUP MEMBERSHIP CHECK
         # ==========================================
         if role in ["Owner", "Tenant", "Family"]:
             is_owner = (role == "Owner")
@@ -80,8 +82,8 @@ class MenuController:
                 if group_status_lines:
                     text += "\n📢 *Community Groups:*\n" + "\n".join(group_status_lines) + "\n"
         
-       # ==========================================
-        # 3. GENERATE ROLE-BASED PORTAL BUTTONS
+        # ==========================================
+        # 4. GENERATE MULTI-ROLE PORTAL BUTTONS
         # ==========================================
         keyboard = []
         is_aoa = getattr(active_profile, 'is_aoa_member', False)
@@ -89,24 +91,28 @@ class MenuController:
         if role in ["Owner", "Tenant", "Family"]:
             keyboard.append([{"text": "🏠 Open Resident Portal", "callback_data": "/portal_resident"}])
             
-        # 👇 NEW: Add the AoA Portal Button if they are a member
         if is_aoa:
             keyboard.append([{"text": "👔 Open AoA Committee Portal", "callback_data": "/portal_aoa"}])
             
-        if clean_staff_role in ["Office Admin", "Estate Manager"]:
+        # 👇 INDIVIDUAL STAFF ROLE CHECKS 
+        if any(r in ["Office Admin", "Estate Manager"] for r in staff_roles):
             keyboard.append([{"text": "🏢 Open Estate Office Portal", "callback_data": "/portal_admin"}])
-        elif clean_staff_role == "Doc Verifier":
+            
+        if "Doc Verifier" in staff_roles:
             keyboard.append([{"text": "✅ Open Verification Desk", "callback_data": "/portal_verifier"}])
-        elif clean_staff_role == "Security Guard":
+            
+        if "Security Guard" in staff_roles:
             keyboard.append([{"text": "🛡️ Open Security Gate Portal", "callback_data": "/portal_guard"}])
-        elif clean_staff_role and clean_staff_role.startswith("Maintenance"):
-            keyboard.append([{"text": f"🛠️ Open {clean_staff_role} Dashboard", "callback_data": "/my_assigned_tickets"}])
+            
+        # Check if ANY assigned role starts with "Maintenance"
+        maintenance_roles = [r for r in staff_roles if r.startswith("Maintenance")]
+        if maintenance_roles:
+            display_role = maintenance_roles[0] # Uses the first matched maintenance role for button label
+            keyboard.append([{"text": f"🛠️ Open {display_role} Dashboard", "callback_data": "/staff_tickets"}])
 
-        # 👇 NEW: Add the Help Button at the very bottom of the Hub
         keyboard.append([{"text": "❓ Help & Guides", "callback_data": "/help_menu"}])
 
         Messenger.send(platform, chat_id, text, inline_keyboard=keyboard)
-
     # ==========================================
     # SUB-PORTAL METHODS (Triggered by Buttons)
     # ==========================================

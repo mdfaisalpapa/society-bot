@@ -38,8 +38,9 @@ class ResidentProfile:
     eb_service_no: str = None 
     is_aoa_member: bool = False 
     role: Optional[str] = None
-    staff_role: Optional[str] = None 
-    staff_name: Optional[str] = None 
+    staff_role: Optional[str] = None
+    staff_name: Optional[str] = None
+    device_id: Optional[str] = None  # 👈 Stores the Authorized Bot Device document ID ('name') 
     property_tax_no: Optional[str] = None
 
     @property
